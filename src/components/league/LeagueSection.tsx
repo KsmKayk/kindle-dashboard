@@ -14,7 +14,7 @@ interface LeagueSectionProps {
 export function LeagueSection({ data }: LeagueSectionProps) {
   return (
     <div style={{ marginBottom: 10 }}>
-      <SectionHeader label="LEAGUE OF LEGENDS" meta="ranked solo · season 14" />
+      <SectionHeader label="LEAGUE OF LEGENDS" meta={`All Game Modes · season ${new Date().getFullYear()}`} />
 
       {data ? (
         <ProfileBanner

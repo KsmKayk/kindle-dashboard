@@ -53,8 +53,17 @@ export async function getDDVersion(): Promise<string> {
   return versions[0]
 }
 
-export async function getSummonerData(summonerId: string): Promise<SummonerProfile> {
-  return riotFetch<SummonerProfile>(BR1_BASE, `/lol/summoner/v4/summoners/${summonerId}`)
+export async function getSummonerByPuuid(puuid: string): Promise<SummonerProfile> {
+  return riotFetch<SummonerProfile>(BR1_BASE, `/lol/summoner/v4/summoners/by-puuid/${puuid}`)
+}
+
+export async function getPuuidByRiotId(gameName: string, tagLine: string): Promise<string> {
+  type AccountResponse = { puuid: string; gameName: string; tagLine: string }
+  const account = await riotFetch<AccountResponse>(
+    AMERICAS_BASE,
+    `/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`
+  )
+  return account.puuid
 }
 
 async function getMatchDetails(matchId: string, puuid: string, ddVersion: string): Promise<MatchResult> {
@@ -87,8 +96,10 @@ async function getMatchDetails(matchId: string, puuid: string, ddVersion: string
 }
 
 export async function buildLeagueData(): Promise<LeagueData> {
-  const summonerId = process.env.SUMMONER_ID!
-  const [ddVersion, summoner] = await Promise.all([getDDVersion(), getSummonerData(summonerId)])
+  const riotId = process.env.RIOT_ID!
+  const [gameName, tagLine] = riotId.split('#')
+  const [ddVersion, puuid] = await Promise.all([getDDVersion(), getPuuidByRiotId(gameName, tagLine)])
+  const summoner = await getSummonerByPuuid(puuid)
 
   const matchIds = await riotFetch<string[]>(
     AMERICAS_BASE,
@@ -119,11 +130,6 @@ export async function buildLeagueData(): Promise<LeagueData> {
       championImg: getChampionImageUrl(name, ddVersion),
       fallback: buildChampionFallback(name),
     }))
-
-  const summonerName = summoner.name ?? 'Summoner'
-  const [gameName, tagLine] = summonerName.includes('#')
-    ? summonerName.split('#')
-    : [summonerName, 'BR1']
 
   return {
     profile: {

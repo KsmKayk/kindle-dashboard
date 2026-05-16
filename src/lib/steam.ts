@@ -20,10 +20,8 @@ export function getSteamLibraryImageUrl(appId: number | string): string {
 
 async function steamFetch<T>(endpoint: string, params: Record<string, string>): Promise<T> {
   const key = process.env.STEAM_API_KEY!
-  const steamId = process.env.STEAM_ID!
   const url = new URL(`${API_BASE}/${endpoint}`)
   url.searchParams.set('key', key)
-  url.searchParams.set('steamid', steamId)
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
   const res = await fetch(url.toString(), { next: { revalidate: 0 } })
   if (!res.ok) throw new Error(`Steam API error: ${res.status}`)
@@ -31,13 +29,16 @@ async function steamFetch<T>(endpoint: string, params: Record<string, string>): 
 }
 
 export async function buildSteamData(): Promise<SteamData> {
+  const steamId = process.env.STEAM_ID!
   const [summaryRes, ownedRes] = await Promise.all([
+    // GetPlayerSummaries uses 'steamids' (plural, comma-separated list)
     steamFetch<{ response: { players: Array<{ personaname: string; personastate: number; gameid?: string; gameextrainfo?: string }> } }>(
-      'ISteamUser/GetPlayerSummaries/v0002/', {}
+      'ISteamUser/GetPlayerSummaries/v0002/', { steamids: steamId }
     ),
+    // GetOwnedGames uses 'steamid' (singular)
     steamFetch<{ response: { games?: Array<{ appid: number; name: string; playtime_forever: number }>; game_count?: number } }>(
       'IPlayerService/GetOwnedGames/v0001/',
-      { include_appinfo: '1', include_played_free_games: '1' }
+      { steamid: steamId, include_appinfo: '1', include_played_free_games: '1' }
     ),
   ])
 
