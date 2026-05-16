@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+handoff-temp
+kindle-dashboard-handoff.zip
+docs
