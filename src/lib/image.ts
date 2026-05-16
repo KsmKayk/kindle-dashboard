@@ -28,5 +28,6 @@ export async function fetchAndGrayscale(imageUrl: string): Promise<Buffer> {
   const arrayBuffer = await response.arrayBuffer()
   return sharp(Buffer.from(arrayBuffer))
     .grayscale()
+    .png()
     .toBuffer()
 }
