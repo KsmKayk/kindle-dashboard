@@ -1,18 +1,15 @@
 'use client'
 
-import { SteamSection } from '@/components/steam/SteamSection'
-import { LeagueSection } from '@/components/league/LeagueSection'
+import { SpotifySection } from '@/components/spotify/SpotifySection'
 import { NavButtons } from '@/components/layout/NavButtons'
 import { Footer } from '@/components/layout/Footer'
-import { useSteamData } from '@/hooks/useSteamData'
-import { useLeagueData } from '@/hooks/useLeagueData'
+import { useSpotifyData } from '@/hooks/useSpotifyData'
 
 const INK = '#1a1612'
 const PAPER = '#e8e3d8'
 
-export default function DashboardPage() {
-  const steamData = useSteamData()
-  const leagueData = useLeagueData()
+export default function SpotifyPage() {
+  const { playback, lyrics, liveProgressMs, sendControl } = useSpotifyData()
 
   return (
     <div
@@ -30,9 +27,13 @@ export default function DashboardPage() {
           'radial-gradient(circle at 20% 20%, rgba(0,0,0,0.015) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(0,0,0,0.02) 0%, transparent 50%)',
       }}
     >
-      <SteamSection data={steamData} />
-      <LeagueSection data={leagueData} />
-      <NavButtons activePage="dashboard" />
+      <SpotifySection
+        playback={playback}
+        lyrics={lyrics}
+        liveProgressMs={liveProgressMs}
+        onAction={sendControl}
+      />
+      <NavButtons activePage="spotify" />
       <Footer />
     </div>
   )
