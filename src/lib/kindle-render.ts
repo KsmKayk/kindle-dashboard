@@ -15,8 +15,11 @@ export function escapeHtml(str: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function proxyImg(url: string, baseUrl: string): string {
-  return `${baseUrl}/api/image-proxy?url=${encodeURIComponent(url)}`
+// Relative URL so browsers resolve it against the current page host.
+// Absolute URLs break in Docker/reverse-proxy where request.url reflects
+// the internal address (localhost) rather than the LAN IP the client used.
+function proxyImg(url: string): string {
+  return `/api/image-proxy?url=${encodeURIComponent(url)}`
 }
 
 function formatTime(ms: number): string {
@@ -24,7 +27,6 @@ function formatTime(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-// Matches SectionHeader component: label + horizontal line + meta
 function sectionHeader(label: string, meta: string): string {
   return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
   <span style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:10px;font-weight:bold;letter-spacing:2.5px;color:${INK};white-space:nowrap;">${label}</span>
@@ -33,8 +35,7 @@ function sectionHeader(label: string, meta: string): string {
 </div>`
 }
 
-// Matches NowPlaying component
-function renderNowPlaying(game: SteamNowPlaying | null, baseUrl: string): string {
+function renderNowPlaying(game: SteamNowPlaying | null): string {
   const cardBase = `background:${PAPER_LIGHT};border:1px solid ${INK};border-radius:10px;box-sizing:border-box;padding:9px;height:70px;margin-bottom:10px;overflow:hidden;`
 
   if (!game) {
@@ -47,7 +48,7 @@ function renderNowPlaying(game: SteamNowPlaying | null, baseUrl: string): string
   <table cellpadding="0" cellspacing="0" width="100%"><tr>
     <td style="width:52px;padding-right:12px;vertical-align:middle;">
       <div style="width:52px;height:52px;border-radius:6px;overflow:hidden;border:1px solid ${INK};">
-        <img src="${proxyImg(game.headerImg, baseUrl)}" alt="${escapeHtml(game.name)}" width="52" height="52" style="display:block;width:52px;height:52px;" onerror="this.style.display='none'">
+        <img src="${proxyImg(game.headerImg)}" alt="${escapeHtml(game.name)}" width="52" height="52" style="display:block;width:52px;height:52px;" onerror="this.style.display='none'">
       </div>
     </td>
     <td style="vertical-align:middle;">
@@ -65,14 +66,13 @@ function renderNowPlaying(game: SteamNowPlaying | null, baseUrl: string): string
 </div>`
 }
 
-// Matches GameCard component
-function renderGameCard(game: SteamTopGame, baseUrl: string): string {
+function renderGameCard(game: SteamTopGame): string {
   return `<div style="background:${PAPER_LIGHT};border:1px solid ${INK};border-radius:10px;box-sizing:border-box;padding:10px;height:86px;overflow:hidden;">
   <table cellpadding="0" cellspacing="0" width="100%" height="66">
     <tr>
       <td rowspan="2" style="width:66px;padding-right:10px;vertical-align:top;">
         <div style="width:66px;height:66px;border-radius:6px;overflow:hidden;border:1px solid ${INK};">
-          <img src="${proxyImg(game.coverImg, baseUrl)}" alt="${escapeHtml(game.name)}" width="66" height="66" style="display:block;width:66px;height:66px;" onerror="this.style.display='none'">
+          <img src="${proxyImg(game.coverImg)}" alt="${escapeHtml(game.name)}" width="66" height="66" style="display:block;width:66px;height:66px;" onerror="this.style.display='none'">
         </div>
       </td>
       <td style="vertical-align:top;padding-top:2px;">
@@ -91,7 +91,6 @@ function renderGameCard(game: SteamTopGame, baseUrl: string): string {
 </div>`
 }
 
-// Matches TotalGamesCard component — dark/inverted
 function renderTotalGamesCard(total: number): string {
   return `<div style="background:${INK};color:${PAPER};border:1px solid ${INK};border-radius:10px;box-sizing:border-box;padding:10px;height:86px;display:flex;align-items:center;gap:12px;overflow:hidden;">
   <div style="font-family:Georgia,serif;font-size:48px;font-weight:bold;line-height:1;letter-spacing:-2px;">${total}</div>
@@ -102,7 +101,7 @@ function renderTotalGamesCard(total: number): string {
 </div>`
 }
 
-function renderSteam(data: SteamData | null, baseUrl: string): string {
+function renderSteam(data: SteamData | null): string {
   if (!data) {
     return `<div style="margin-bottom:10px;">
   ${sectionHeader('STEAM', 'unavailable')}
@@ -113,7 +112,7 @@ function renderSteam(data: SteamData | null, baseUrl: string): string {
   const meta = `${escapeHtml(data.personaname)} &middot; ${data.isOnline ? 'online' : 'offline'}`
 
   const cells: string[] = [
-    ...data.topGames.slice(0, 3).map((g) => renderGameCard(g, baseUrl)),
+    ...data.topGames.slice(0, 3).map((g) => renderGameCard(g)),
     renderTotalGamesCard(data.totalGames),
   ]
 
@@ -127,16 +126,15 @@ function renderSteam(data: SteamData | null, baseUrl: string): string {
 
   return `<div style="margin-bottom:10px;">
   ${sectionHeader('STEAM', meta)}
-  ${renderNowPlaying(data.nowPlaying, baseUrl)}
+  ${renderNowPlaying(data.nowPlaying)}
   <table width="100%" cellpadding="0" cellspacing="0">${rows.join('')}</table>
 </div>`
 }
 
-// Matches ProfileBanner component — circular icon, right-aligned level
-function renderProfileBanner(profile: LeagueData['profile'], baseUrl: string): string {
+function renderProfileBanner(profile: LeagueData['profile']): string {
   return `<div style="background:${PAPER_LIGHT};border:1px solid ${INK};border-radius:10px;box-sizing:border-box;display:flex;align-items:center;padding:12px;gap:14px;height:68px;margin-bottom:8px;overflow:hidden;">
   <div style="width:44px;height:44px;border-radius:9999px;border:1px solid ${INK};overflow:hidden;flex-shrink:0;">
-    <img src="${proxyImg(profile.iconUrl, baseUrl)}" alt="${escapeHtml(profile.name)}" width="44" height="44" style="display:block;width:44px;height:44px;" onerror="this.style.display='none'">
+    <img src="${proxyImg(profile.iconUrl)}" alt="${escapeHtml(profile.name)}" width="44" height="44" style="display:block;width:44px;height:44px;" onerror="this.style.display='none'">
   </div>
   <div style="flex:1;min-width:0;">
     <div style="font-size:18px;font-weight:bold;font-family:Georgia,serif;letter-spacing:-0.3px;line-height:1.1;">${escapeHtml(profile.name)}<span style="color:${INK_MUTED};font-weight:normal;font-size:13px;">${escapeHtml(profile.tag)}</span></div>
@@ -148,8 +146,7 @@ function renderProfileBanner(profile: LeagueData['profile'], baseUrl: string): s
 </div>`
 }
 
-// Matches MatchCard component — win=PAPER_LIGHT, loss=PAPER_DARK, circular image, W/L pill
-function renderMatchCard(match: MatchResult, baseUrl: string): string {
+function renderMatchCard(match: MatchResult): string {
   const bg = match.win ? PAPER_LIGHT : PAPER_DARK
   const badgeBg = match.win ? INK : 'transparent'
   const badgeColor = match.win ? PAPER : INK
@@ -157,7 +154,7 @@ function renderMatchCard(match: MatchResult, baseUrl: string): string {
 
   return `<div style="background:${bg};border:1px solid ${INK};border-radius:10px;box-sizing:border-box;padding:8px;height:60px;display:flex;align-items:center;gap:10px;overflow:hidden;">
   <div style="width:40px;height:40px;border-radius:9999px;overflow:hidden;border:1px solid ${INK};flex-shrink:0;">
-    <img src="${proxyImg(match.championImg, baseUrl)}" alt="${escapeHtml(match.champion)}" width="40" height="40" style="display:block;width:40px;height:40px;" onerror="this.style.display='none'">
+    <img src="${proxyImg(match.championImg)}" alt="${escapeHtml(match.champion)}" width="40" height="40" style="display:block;width:40px;height:40px;" onerror="this.style.display='none'">
   </div>
   <div style="flex:1;min-width:0;">
     <div style="font-size:8px;letter-spacing:1.2px;font-family:'Helvetica Neue',Arial,sans-serif;color:${INK_MUTED};">${escapeHtml(match.queueType.toUpperCase())}</div>
@@ -167,7 +164,6 @@ function renderMatchCard(match: MatchResult, baseUrl: string): string {
 </div>`
 }
 
-// Matches WinrateBar component
 function renderWinrateBar(value: number): string {
   const pct = Math.min(100, Math.max(0, value))
   return `<div style="width:100%;height:4px;background:${PAPER_DARKER};border-radius:2px;overflow:hidden;border:1px solid ${INK};box-sizing:border-box;">
@@ -175,15 +171,14 @@ function renderWinrateBar(value: number): string {
 </div>`
 }
 
-// Matches ChampionRow component — circular image, rank badge, winrate bar
-function renderChampionRow(champ: ChampionStat, rank: number, baseUrl: string): string {
+function renderChampionRow(champ: ChampionStat, rank: number): string {
   const rankBg = rank === 1 ? INK : 'transparent'
   const rankColor = rank === 1 ? PAPER : INK
 
   return `<div style="background:${PAPER_LIGHT};border:1px solid ${INK};border-radius:10px;box-sizing:border-box;padding:7px;height:50px;display:flex;align-items:center;gap:10px;margin-bottom:6px;overflow:hidden;">
   <div style="width:20px;height:20px;border-radius:9999px;border:1px solid ${INK};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;font-family:Georgia,serif;background:${rankBg};color:${rankColor};flex-shrink:0;">${rank}</div>
   <div style="width:34px;height:34px;border-radius:9999px;overflow:hidden;border:1px solid ${INK};flex-shrink:0;">
-    <img src="${proxyImg(champ.championImg, baseUrl)}" alt="${escapeHtml(champ.name)}" width="34" height="34" style="display:block;width:34px;height:34px;" onerror="this.style.display='none'">
+    <img src="${proxyImg(champ.championImg)}" alt="${escapeHtml(champ.name)}" width="34" height="34" style="display:block;width:34px;height:34px;" onerror="this.style.display='none'">
   </div>
   <div style="flex:1;min-width:0;">
     <div style="font-size:14px;font-weight:bold;font-family:Georgia,serif;line-height:1;letter-spacing:-0.2px;">${escapeHtml(champ.name)}</div>
@@ -196,7 +191,7 @@ function renderChampionRow(champ: ChampionStat, rank: number, baseUrl: string): 
 </div>`
 }
 
-function renderLeague(data: LeagueData | null, baseUrl: string): string {
+function renderLeague(data: LeagueData | null): string {
   const year = new Date().getFullYear()
 
   if (!data) {
@@ -206,7 +201,7 @@ function renderLeague(data: LeagueData | null, baseUrl: string): string {
 </div>`
   }
 
-  const matchCells = data.matches.slice(0, 4).map((m) => renderMatchCard(m, baseUrl))
+  const matchCells = data.matches.slice(0, 4).map((m) => renderMatchCard(m))
   const matchRows: string[] = []
   for (let i = 0; i < matchCells.length; i += 2) {
     matchRows.push(`<tr>
@@ -215,24 +210,23 @@ function renderLeague(data: LeagueData | null, baseUrl: string): string {
 </tr>`)
   }
 
-  const champRows = data.topChamps.map((c, i) => renderChampionRow(c, i + 1, baseUrl)).join('')
+  const champRows = data.topChamps.map((c, i) => renderChampionRow(c, i + 1)).join('')
 
   return `<div style="margin-bottom:10px;">
   ${sectionHeader('LEAGUE OF LEGENDS', `All Game Modes &middot; ${year}`)}
-  ${renderProfileBanner(data.profile, baseUrl)}
+  ${renderProfileBanner(data.profile)}
   <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:2px;">${matchRows.join('')}</table>
   ${champRows}
 </div>`
 }
 
-// Compact now-playing bar — keeps Spotify within footer area
-function renderSpotify(data: SpotifyPlayback | null, baseUrl: string): string {
+function renderSpotify(data: SpotifyPlayback | null): string {
   if (!data?.isPlaying || !data.track) return ''
   const track = data.track
   const pct = track.durationMs > 0 ? Math.min(100, Math.max(0, (track.progressMs / track.durationMs) * 100)) : 0
 
   const coverImg = track.coverUrl
-    ? `<img src="${proxyImg(track.coverUrl, baseUrl)}" alt="${escapeHtml(track.title)}" width="44" height="44" style="display:block;width:44px;height:44px;" onerror="this.style.display='none'">`
+    ? `<img src="${proxyImg(track.coverUrl)}" alt="${escapeHtml(track.title)}" width="44" height="44" style="display:block;width:44px;height:44px;" onerror="this.style.display='none'">`
     : ''
 
   return `<div style="margin-bottom:8px;">
@@ -252,7 +246,6 @@ function renderSpotify(data: SpotifyPlayback | null, baseUrl: string): string {
 </div>`
 }
 
-// Matches Footer component
 function renderFooter(): string {
   return `<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding-top:10px;">
   <div style="flex:1;height:1px;background:${INK};opacity:0.3;max-width:140px;"></div>
@@ -261,11 +254,14 @@ function renderFooter(): string {
 </div>`
 }
 
+// baseUrl is kept in the signature for backward compatibility with the route
+// handler, but images use relative URLs so they always resolve correctly
+// regardless of how the server is accessed (LAN IP, localhost, Docker, etc.).
 export function renderKindlePage(
   steam: SteamData | null,
   league: LeagueData | null,
   spotify: SpotifyPlayback | null,
-  baseUrl: string
+  _baseUrl: string
 ): string {
   const steamRate = parseInt(process.env.STEAM_UPDATE_RATE ?? '60', 10)
   const leagueRate = parseInt(process.env.LEAGUE_UPDATE_RATE ?? '600', 10)
@@ -280,9 +276,9 @@ export function renderKindlePage(
 <title>AutumnFaun Dashboard</title>
 </head>
 <body style="background:${PAPER};color:${INK};font-family:Georgia,'Times New Roman',serif;margin:0;padding:20px 22px 16px;width:556px;box-sizing:border-box;">
-${renderSteam(steam, baseUrl)}
-${renderLeague(league, baseUrl)}
-${renderSpotify(spotify, baseUrl)}
+${renderSteam(steam)}
+${renderLeague(league)}
+${renderSpotify(spotify)}
 ${renderFooter()}
 </body>
 </html>`
