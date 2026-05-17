@@ -1,36 +1,163 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
 
-## Getting Started
+# AutumnFaun Dashboard
 
-First, run the development server:
+*A personal e-ink dashboard served to a Kindle Paperwhite via its built-in web browser*
+
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com)
+[![Steam](https://img.shields.io/badge/Steam-API-171A21?style=flat-square&logo=steam)](https://steamcommunity.com/dev)
+[![Riot Games](https://img.shields.io/badge/Riot-API-D32936?style=flat-square&logo=riotgames&logoColor=white)](https://developer.riotgames.com)
+[![Spotify](https://img.shields.io/badge/Spotify-WIP-1DB954?style=flat-square&logo=spotify&logoColor=white)](https://developer.spotify.com)
+
+</div>
+
+---
+
+## What is this?
+
+A self-hosted web dashboard that runs on a **Kindle Paperwhite** acting as an always-on status display. The Kindle sits on a desk with its browser open in fullscreen, showing Steam activity and League of Legends stats — refreshing automatically, no interaction needed.
+
+The main app is a full React/Next.js dashboard for modern browsers. For the Kindle, a dedicated `/kindle` route serves a zero-JavaScript, pre-rendered HTML page that even the oldest WebKit browser can handle.
+
+<div align="center">
+
+![Kindle version of the dashboard](github/assets/kindle-version.png)
+
+</div>
+
+---
+
+## The Rendering Challenge — How to Make It Work on a Kindle
+
+Getting a web app to display correctly on a Kindle is not straightforward. The Kindle Paperwhite ships with an old WebKit-based browser with significant limitations:
+
+- **No modern JavaScript runtime** — React, hydration, and client-side hooks are too heavy for the hardware
+- **No reliable CSS Grid / Flexbox** — older browser versions ignore or misrender modern layout CSS
+- **Slow CPU and very limited RAM** — even a lightweight JS bundle can freeze or crash the browser
+- **Client-side API calls are a problem** — fetching multiple external APIs from the browser adds latency on already sluggish hardware, and any JS error kills the whole page
+
+### Approaches Considered
+
+| Approach | Pros | Cons | Verdict |
+|---|---|---|---|
+| **Regular React page** | Already built | Too heavy for Kindle; JS crashes | ❌ |
+| **PNG screenshot (Puppeteer)** | Perfect visual match | Requires headless Chrome on server; heavy dependency | ❌ |
+| **Next.js ISR** | Static-ish output | Still ships a React bundle the Kindle has to execute | ❌ |
+| **Pure HTML route** | Zero JS, works on any browser | No interactivity (acceptable for a dashboard) | ✅ |
+
+### The Solution
+
+A dedicated `/kindle` route handler that:
+
+1. **Fetches all data server-side** using a TTL cache (`STEAM_UPDATE_RATE`, `LEAGUE_UPDATE_RATE`) so the Kindle browser never makes a single external API call
+2. **Renders a complete HTML string** with inline styles, `<table>`-based grids, and fixed-pixel image dimensions — no CSS classes, no external stylesheets, no JavaScript
+3. **Returns `text/html`** with a `<meta http-equiv="refresh">` tag so the page auto-reloads at the configured interval
+4. **Proxies all images** through `/api/image-proxy`, which converts them to grayscale PNG on the server with Sharp — the Kindle e-ink display only shows grey anyway
+5. **Uses relative image URLs** (`/api/image-proxy?url=...`) so images always resolve correctly regardless of how the server is accessed — localhost in dev, LAN IP in Docker, behind a reverse proxy, etc.
+
+The visual design matches the React dashboard component-by-component — same color palette, same typography, same layout — rendered as static HTML instead of React.
+
+### Kindle Setup
+
+1. Deploy with Docker Compose (see below)
+2. Open the Kindle browser
+3. Navigate to `http://<your-server-ip>:3000/kindle`
+4. Use the browser's **fullscreen** or **article mode** to hide the address bar
+5. The page refreshes itself every 60 seconds (configurable via `STEAM_UPDATE_RATE`)
+
+---
+
+## Features
+
+| Section | Details |
+|---|---|
+| 🎮 **Steam** | Online status · Now Playing card with game art · Top 3 games with hours played · Total library count |
+| 🏆 **League of Legends** | Summoner profile · Last 4 matches with queue type, KDA and W/L badge · Top 3 champions with winrate bar |
+| 🎵 **Spotify** | Compact now-playing card with album art and progress bar *(see note below)* |
+
+---
+
+## ⚠️ Spotify — Work in Progress
+
+Spotify integration is **WIP**. The full experience — live player, synced lyrics, playback controls — is available at `/spotify` and requires a modern browser capable of running React and polling the API client-side.
+
+**The `/kindle` route shows a static Spotify card only when a track is actively playing at page-load time.** Because the Kindle page has no JavaScript, it cannot poll for changes; the card only updates when the meta-refresh fires (every 60 seconds).
+
+> **Spotify on `/kindle` only works reliably on newer Kindle models** whose browsers can handle the OAuth callback and modern HTTPS correctly. Older Kindles that depend on the `/kindle` static route will not see Spotify data — the section is simply omitted when no refresh token is configured.
+>
+> For the full Spotify experience (controls, lyrics, live progress), use a modern browser at `/spotify`.
+
+---
+
+## Tech Stack
+
+- **Next.js 16** — App Router, route handlers, standalone Docker output
+- **TypeScript** — strict mode throughout
+- **Tailwind CSS v4** — main dashboard styling
+- **Sharp** — server-side grayscale image conversion via `/api/image-proxy`
+- **Steam Web API** — player summary, owned games, now playing
+- **Riot Games API** — account lookup by Riot ID, match history, summoner data
+- **Data Dragon** — champion images and profile icons
+- **Spotify Web API + LRCLIB** — currently playing track, synced lyrics
+- **Docker** — multi-stage build with Sharp native binaries for Alpine
+
+---
+
+## Running Locally
 
 ```bash
+# 1. Install dependencies
+npm install
+
+# 2. Fill in environment variables
+cp .env.example .env   # edit .env with your API keys
+
+# 3. Start the dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+| URL | Description |
+|---|---|
+| `http://localhost:3000` | Main React dashboard |
+| `http://localhost:3000/kindle` | Kindle-optimized static HTML view |
+| `http://localhost:3000/spotify` | Full Spotify player |
+| `http://localhost:3000/api/spotify/auth` | Start Spotify OAuth flow |
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Running with Docker
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+docker compose build
+docker compose up -d
+```
 
-## Learn More
+The server starts on port `3000`. Access the Kindle route from any device on the same network at `http://<host-ip>:3000/kindle`.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment Variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Variable | Description | Default |
+|---|---|---|
+| `STEAM_API_KEY` | Steam Web API key | — |
+| `STEAM_ID` | Your Steam 64-bit ID | — |
+| `LEAGUE_API_KEY` | Riot Games API key *(dev keys expire every 24 h)* | — |
+| `RIOT_ID` | Your Riot ID in `Name#TAG` format | — |
+| `SPOTIFY_API_CLIENT_ID` | Spotify app client ID | — |
+| `SPOTIFY_API_CLIENT_SECRET` | Spotify app client secret | — |
+| `SPOTIFY_REFRESH_TOKEN` | OAuth refresh token *(obtained via `/api/spotify/auth`)* | — |
+| `LRCLIB_API_URL` | LRCLIB lyrics API base URL | `https://lrclib.net/api/` |
+| `STEAM_UPDATE_RATE` | Steam cache TTL and Kindle refresh interval (seconds) | `60` |
+| `LEAGUE_UPDATE_RATE` | League cache TTL (seconds) | `600` |
+| `SPOTIFY_UPDATE_RATE` | Spotify polling interval for main dashboard (seconds) | `10` |
 
-## Deploy on Vercel
+> **Riot API note:** development keys expire every 24 hours. The app resolves accounts by Riot ID (`Name#TAG`) via the Account API — no encrypted summoner ID needs to be stored or updated when the key rotates.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+<div align="center">
+
+*Built for a Kindle Paperwhite sitting on a desk*
+
+</div>
