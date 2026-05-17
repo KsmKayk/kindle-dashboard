@@ -28,8 +28,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static   ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public         ./public
 
-# Sharp native module — standalone doesn't bundle native addons automatically
+# Sharp native module — standalone doesn't bundle native addons automatically.
+# Sharp 0.33+ stores the actual native binary in @img/sharp-linux-musl-x64
+# (Alpine uses musl libc). Both packages are required.
 COPY --from=deps /app/node_modules/sharp ./node_modules/sharp
+COPY --from=deps /app/node_modules/@img  ./node_modules/@img
 
 USER nextjs
 EXPOSE 3000
