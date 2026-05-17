@@ -61,11 +61,24 @@ The visual design matches the React dashboard component-by-component — same co
 
 ### Kindle Setup
 
-1. Deploy with Docker Compose (see below)
-2. Open the Kindle browser
-3. Navigate to `http://<your-server-ip>:3000/kindle`
-4. Use the browser's **fullscreen** or **article mode** to hide the address bar
-5. The page refreshes itself every 60 seconds (configurable via `STEAM_UPDATE_RATE`)
+> **Prerequisite:** The Kindle must be jailbroken to install the fullscreen browser. The steps below assume you've already got the server running locally or via Docker.
+
+1. **Get the server running** — follow the [Running Locally](#running-locally) or [Running with Docker](#running-with-docker) steps below until the dashboard is accessible at `http://localhost:3000` or your LAN IP.
+
+2. **Jailbreak your Kindle** — ([video walkthrough](https://youtu.be/l4ZliC82RtA?si=FmbEArpWFKxcYqRo) · [jailbreak documentation](https://kindlemodding.org/kindle-models.html))
+   My device was on firmware **5.18.1** and I used [**AdBreak**](https://github.com/notmarek/adbreak) to jailbreak it.
+
+3. **Install KUAL and the Fullscreen Web Browser** — after jailbreaking and installing KUAL, download the fullscreen browser extension:
+   [https://kindlemodshelf.me/fullscreenweb](https://kindlemodshelf.me/fullscreenweb)
+
+4. **Configure the URL** — edit `shortcut_browser.sh` inside the downloaded package and replace the example URL with your server address:
+   ```
+   YOUR_SERVER_IP:3000/kindle
+   ```
+
+5. **Copy files to the Kindle** — connect the Kindle via USB and copy the browser files into the `documents` folder at the root of the device.
+
+6. **Launch** — open the Kindle, tap **"Shortcut Browser"** in KUAL, and the dashboard loads fullscreen.
 
 ---
 
@@ -153,6 +166,14 @@ The server starts on port `3000`. Access the Kindle route from any device on the
 | `SPOTIFY_UPDATE_RATE` | Spotify polling interval for main dashboard (seconds) | `10` |
 
 > **Riot API note:** development keys expire every 24 hours. The app resolves accounts by Riot ID (`Name#TAG`) via the Account API — no encrypted summoner ID needs to be stored or updated when the key rotates.
+
+---
+
+## Roadmap
+
+- [ ] Fix and complete Spotify integration — live now-playing on `/kindle` with proper OAuth handling for older Kindle browsers
+- [ ] Data persistence — cache last successful API responses so the dashboard survives temporary API failures or network blips
+- [ ] Partial screen update — refresh only changed sections instead of full-page reloads, to reduce e-ink flicker
 
 ---
 
