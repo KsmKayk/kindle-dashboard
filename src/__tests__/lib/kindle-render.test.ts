@@ -64,7 +64,10 @@ describe('renderKindlePage', () => {
     expect(html).toContain('AutumnFaun')
     expect(html).toContain('online')
     expect(html).toContain('Elden Ring')
-    expect(html).toContain('120h')
+    expect(html).toContain('NOW PLAYING')
+    expect(html).toContain('LIVE')
+    expect(html).toContain('120')
+    expect(html).toContain('PLAYED')
   })
 
   it('uses image proxy URL for Steam game images', () => {
@@ -77,11 +80,13 @@ describe('renderKindlePage', () => {
     const html = renderKindlePage(null, league, null, BASE)
     expect(html).toContain('AutumnFaun')
     expect(html).toContain('#SH4C0')
-    expect(html).toContain('Level 312')
+    expect(html).toContain('SUMMONER LEVEL')
+    expect(html).toContain('312')
     expect(html).toContain('Jinx')
-    expect(html).toContain('WIN')
-    expect(html).toContain('LOSS')
-    expect(html).toContain('67% WR')
+    expect(html).toContain('>W<') // win badge
+    expect(html).toContain('>L<') // loss badge
+    expect(html).toContain('67%')
+    expect(html).toContain('games played')
   })
 
   it('includes Spotify track when playing', () => {
@@ -93,7 +98,8 @@ describe('renderKindlePage', () => {
   it('omits Spotify section when not playing', () => {
     const noSpotify: SpotifyPlayback = { isPlaying: false, track: null }
     const html = renderKindlePage(null, null, noSpotify, BASE)
-    expect(html).not.toContain('♫')
+    expect(html).not.toContain('Song Title')
+    expect(html).not.toContain('now playing')
   })
 
   it('shows unavailable message when data is null', () => {
