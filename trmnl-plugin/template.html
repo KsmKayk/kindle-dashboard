@@ -15,8 +15,13 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: var(--paper); color: var(--ink); }
 
-    /* Let TRMNL control the container size; just reset its padding */
-    .layout { padding: 0 !important; }
+    /* Pin canvas to Kindle 600×800 (portrait) */
+    .layout {
+      width: 600px !important;
+      height: 800px !important;
+      overflow: hidden;
+      padding: 0 !important;
+    }
 
     /* Force vertical stacking, fill whatever canvas TRMNL provides */
     .dash {
