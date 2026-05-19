@@ -40,3 +40,24 @@ Options:
 - League data has its own TTL (`LEAGUE_UPDATE_RATE`, default 600 s).
 - If an API is unavailable, the relevant section shows "unavailable" instead of crashing.
 - Spotify is not included in this plugin yet (see the project roadmap).
+
+## Payload schema
+
+The `/api/trmnl` endpoint returns this JSON shape (all fields are always present; null means data was unavailable):
+
+```json
+{
+  "steam_online": true,
+  "steam_username": "AutumnFaun",
+  "steam_now_playing": "Elden Ring",
+  "steam_now_playing_img": "https://cdn.../header.jpg",
+  "steam_games": [{ "name": "Elden Ring", "hours": 120, "img": "https://..." }],
+  "steam_total_games": 200,
+  "league_name": "AutumnFaun",
+  "league_tag": "#SH4C0",
+  "league_level": 312,
+  "league_icon": "https://ddragon.../icon/123.png",
+  "league_matches": [{ "champion": "Jinx", "win": true, "kda": "10/2/5", "queue": "Ranked Solo", "img": "https://..." }],
+  "league_top_champs": [{ "rank": 1, "name": "Jinx", "games": 15, "winrate": 67, "img": "https://..." }]
+}
+```

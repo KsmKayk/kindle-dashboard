@@ -114,7 +114,7 @@
 
   <!-- Title bar -->
   <div class="dash__title-bar">
-    <span class="dash__title">AutumnFaun Dashboard</span>
+    <span class="dash__title">{% if steam_username %}{{ steam_username }}{% else %}AutumnFaun{% endif %} Dashboard</span>
   </div>
 
   <!-- ── Steam (top half) ── -->
