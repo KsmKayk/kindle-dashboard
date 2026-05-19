@@ -94,7 +94,7 @@ The visual design matches the React dashboard component-by-component — same co
 ### How it works
 
 1. TRMNL polls your server's `/api/trmnl` endpoint for JSON data (Steam + League)
-2. TRMNL renders the plugin's Liquid template on its cloud infrastructure (modern browser, full CSS support)
+2. TRMNL renders the plugin's Liquid template on its servers into a static image (no e-ink browser limitations)
 3. The rendered image is pushed to your KOReader device via TRMNL's BYOD client
 
 ### Setup
