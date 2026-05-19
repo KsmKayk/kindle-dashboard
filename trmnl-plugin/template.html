@@ -15,10 +15,10 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: var(--paper); color: var(--ink); }
 
-    /* Pin canvas to Kindle 800×600 */
+    /* Pin canvas to Kindle 600×800 (portrait) */
     .layout {
-      width: 800px !important;
-      height: 600px !important;
+      width: 600px !important;
+      height: 800px !important;
       overflow: hidden;
       padding: 0 !important;
     }
@@ -205,7 +205,7 @@
     .champ-row__pct { font-size: 12px; font-weight: bold; font-family: Georgia, serif; min-width: 30px; text-align: right; }
 
     /* ── Footer ── */
-    .footer { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+    .footer { display: flex; align-items: center; gap: 8px; padding-top: 4px; margin-top: auto; }
     .footer__line { flex: 1; height: 1px; background: var(--ink); opacity: 0.3; }
     .footer__text {
       font-family: Georgia, serif; font-size: 11px; letter-spacing: 2px;
