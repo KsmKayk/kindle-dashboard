@@ -13,208 +13,439 @@
       --paper-darker: #c4bdac;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: var(--paper); color: var(--ink); font-family: 'Georgia', serif; }
+    body { background: var(--paper); color: var(--ink); }
 
-    /* Root canvas */
-    .dash { display: flex; flex-direction: column; width: 800px; height: 480px; padding: 10px 12px; gap: 0; }
+    /* ── Section header — matches sectionHeader() in kindle-render.ts ── */
+    .sec-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .sec-hdr__label { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: bold;
+                      letter-spacing: 2.5px; color: var(--ink); white-space: nowrap; text-transform: uppercase; }
+    .sec-hdr__line  { flex: 1; height: 1px; background: var(--ink); }
+    .sec-hdr__meta  { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10px; letter-spacing: 1.5px;
+                      color: var(--ink-muted); white-space: nowrap; }
 
-    /* Title bar */
-    .dash__title-bar { display: flex; align-items: center; justify-content: space-between;
-                       border-bottom: 1px solid var(--ink); padding-bottom: 4px; margin-bottom: 8px; flex-shrink: 0; }
-    .dash__title { font-size: 10px; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; }
-
-    /* Vertical sections */
-    .section { flex: 1; display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: hidden; }
-    .section + .section { border-top: 1px solid var(--paper-darker); padding-top: 6px; }
-    .section__header { font-size: 8px; font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase;
-                       color: var(--ink-muted); flex-shrink: 0; }
-
-    /* ── Steam ── */
-
-    /* Main row: Now Playing + 3 game cards side by side */
-    .steam__main { display: flex; gap: 8px; flex: 1; min-height: 0; }
-
-    .now-playing { background: var(--paper-light); border: 1px solid var(--paper-darker); border-radius: 4px;
-                   padding: 7px 10px; display: flex; align-items: center; gap: 10px; flex: 0 0 280px; }
-    .now-playing__img { width: 52px; height: 52px; object-fit: cover; flex-shrink: 0; }
+    /* ── Now Playing — matches renderNowPlaying() ── */
+    .now-playing { background: var(--paper-light); border: 1px solid var(--ink); border-radius: 10px;
+                   padding: 9px; height: 70px; margin-bottom: 10px; overflow: hidden;
+                   display: flex; align-items: center; gap: 12px; }
+    .now-playing__img-wrap { width: 52px; height: 52px; border-radius: 6px; overflow: hidden;
+                             border: 1px solid var(--ink); flex-shrink: 0; }
+    .now-playing__img { display: block; width: 52px; height: 52px; object-fit: cover; }
     .now-playing__info { flex: 1; min-width: 0; }
-    .now-playing__label { font-size: 7px; font-weight: bold; letter-spacing: 0.1em; text-transform: uppercase;
-                          color: var(--ink-muted); display: flex; justify-content: space-between; margin-bottom: 4px; }
-    .now-playing__live { color: var(--ink); }
-    .now-playing__name { font-size: 13px; font-weight: bold; line-height: 1.2;
-                         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .now-playing__top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .now-playing__badge { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9px; font-weight: bold;
+                          letter-spacing: 2.2px; color: var(--ink-muted); }
+    .now-playing__live  { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9px; font-weight: bold;
+                          letter-spacing: 1.5px; color: var(--ink); }
+    .now-playing__name  { font-size: 18px; font-weight: bold; font-family: Georgia, serif;
+                          letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .game-card { flex: 1; background: var(--paper-light); border: 1px solid var(--paper-darker); border-radius: 4px;
-                 padding: 5px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-    .game-card__img { width: 66px; height: 66px; object-fit: cover; }
-    .game-card__name { font-size: 8px; font-weight: bold; text-align: center; line-height: 1.2;
-                       overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; width: 100%; }
-    .game-card__hours { font-size: 11px; font-weight: bold; }
-    .game-card__played { font-size: 7px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+    /* ── 2-column card grid — matches table layout in renderSteam() / renderLeague() ── */
+    .card-grid { width: 100%; border-collapse: collapse; }
+    .card-grid td { width: 50%; vertical-align: top; padding-bottom: 8px; }
+    .card-grid td:first-child { padding-right: 4px; }
+    .card-grid td:last-child  { padding-left: 4px; }
 
-    /* Total games — full-width dark bar */
-    .total-games { background: var(--ink); color: var(--paper); border-radius: 4px; padding: 4px 16px;
-                   display: flex; align-items: center; justify-content: center; gap: 10px; flex-shrink: 0; }
-    .total-games__count { font-size: 22px; font-weight: bold; line-height: 1; }
-    .total-games__label { font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; }
+    /* ── Game card — matches renderGameCard() ── */
+    .game-card { background: var(--paper-light); border: 1px solid var(--ink); border-radius: 10px;
+                 padding: 10px; height: 86px; overflow: hidden; }
+    .game-card__table { width: 100%; height: 66px; border-collapse: collapse; }
+    .game-card__img-cell { width: 66px; padding-right: 10px; vertical-align: top; }
+    .game-card__img-wrap { width: 66px; height: 66px; border-radius: 6px; overflow: hidden; border: 1px solid var(--ink); }
+    .game-card__img  { display: block; width: 66px; height: 66px; object-fit: cover; }
+    .game-card__name { font-size: 12px; font-weight: bold; font-family: Georgia, serif; color: var(--ink);
+                       line-height: 1.2; overflow: hidden; }
+    .game-card__foot { vertical-align: bottom; padding-bottom: 2px; }
+    .game-card__foot-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .game-card__played { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 8px;
+                         letter-spacing: 1.5px; color: var(--ink-muted); }
+    .game-card__hours  { font-size: 18px; font-weight: bold; font-family: Georgia, serif;
+                         color: var(--ink); letter-spacing: -0.5px; }
+    .game-card__h { font-size: 11px; font-weight: normal; }
 
-    /* ── League ── */
+    /* ── Total games — matches renderTotalGamesCard() ── */
+    .total-games { background: var(--ink); color: var(--paper); border: 1px solid var(--ink); border-radius: 10px;
+                   padding: 10px; height: 86px; display: flex; align-items: center; gap: 12px; overflow: hidden; }
+    .total-games__count { font-family: Georgia, serif; font-size: 48px; font-weight: bold;
+                          line-height: 1; letter-spacing: -2px; }
+    .total-games__right { border-left: 1px solid var(--paper); padding-left: 12px; }
+    .total-games__total { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9px;
+                          letter-spacing: 2px; opacity: 0.75; margin-bottom: 2px; }
+    .total-games__label { font-family: Georgia, serif; font-size: 13px; font-weight: bold; line-height: 1.1; }
 
-    .profile { background: var(--paper-light); border: 1px solid var(--paper-darker); border-radius: 4px;
-               padding: 5px 10px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-    .profile__icon { width: 40px; height: 40px; border-radius: 9999px; object-fit: cover;
-                     border: 1px solid var(--paper-darker); flex-shrink: 0; }
-    .profile__info { flex: 1; min-width: 0; }
-    .profile__name { font-size: 13px; font-weight: bold; }
-    .profile__tag  { font-size: 9px; color: var(--ink-muted); }
-    .profile__level-wrap { text-align: right; flex-shrink: 0; }
-    .profile__level { font-size: 20px; font-weight: bold; line-height: 1; }
-    .profile__level-label { font-size: 7px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+    /* ── Profile banner — matches renderProfileBanner() ── */
+    .profile { background: var(--paper-light); border: 1px solid var(--ink); border-radius: 10px;
+               display: flex; align-items: center; padding: 12px; gap: 14px;
+               height: 68px; margin-bottom: 8px; overflow: hidden; }
+    .profile__icon-wrap { width: 44px; height: 44px; border-radius: 9999px; border: 1px solid var(--ink);
+                          overflow: hidden; flex-shrink: 0; }
+    .profile__icon { display: block; width: 44px; height: 44px; object-fit: cover; }
+    .profile__info  { flex: 1; min-width: 0; }
+    .profile__name  { font-size: 18px; font-weight: bold; font-family: Georgia, serif;
+                      letter-spacing: -0.3px; line-height: 1.1; }
+    .profile__tag   { color: var(--ink-muted); font-weight: normal; font-size: 13px; }
+    .profile__lv-label { font-size: 9px; letter-spacing: 2px; font-family: 'Helvetica Neue', Arial, sans-serif;
+                         color: var(--ink-muted); margin-top: 3px; }
+    .profile__level { font-size: 28px; font-weight: bold; font-family: Georgia, serif;
+                      line-height: 1; letter-spacing: -1px; text-align: right; }
 
-    /* Matches — horizontal row, 4 cards filling full width */
-    .matches { display: flex; gap: 6px; flex-shrink: 0; }
-    .match { flex: 1; border-radius: 4px; padding: 5px 7px; border: 1px solid var(--paper-darker);
-             display: flex; flex-direction: column; gap: 2px; }
+    /* ── Match card — matches renderMatchCard() ── */
+    .match { border: 1px solid var(--ink); border-radius: 10px; padding: 8px; height: 60px;
+             display: flex; align-items: center; gap: 10px; overflow: hidden; }
     .match--win  { background: var(--paper-light); }
     .match--loss { background: var(--paper-dark); }
-    .match__top  { display: flex; align-items: center; gap: 6px; }
-    .match__img  { width: 30px; height: 30px; border-radius: 9999px; object-fit: cover; flex-shrink: 0; }
-    .match__champ { font-size: 10px; font-weight: bold; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .match__badge { font-size: 8px; font-weight: bold; border-radius: 9999px; padding: 1px 6px;
-                    border: 1px solid var(--ink); flex-shrink: 0; }
-    .match__badge--win  { background: var(--ink); color: var(--paper); }
-    .match__badge--loss { background: transparent; color: var(--ink); }
-    .match__queue { font-size: 7px; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .match__kda   { font-size: 9px; font-weight: bold; }
+    .match__img-wrap { width: 40px; height: 40px; border-radius: 9999px; overflow: hidden;
+                       border: 1px solid var(--ink); flex-shrink: 0; }
+    .match__img  { display: block; width: 40px; height: 40px; object-fit: cover; }
+    .match__meta { flex: 1; min-width: 0; }
+    .match__queue { font-size: 8px; letter-spacing: 1.2px; font-family: 'Helvetica Neue', Arial, sans-serif;
+                    color: var(--ink-muted); text-transform: uppercase; }
+    .match__kda   { font-size: 14px; font-weight: bold; font-family: Georgia, serif;
+                    line-height: 1.1; margin-top: 1px; }
+    .match__kda-sep { color: var(--ink-muted); margin: 0 2px; }
+    .match__badge-win  { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: bold;
+                         letter-spacing: 1px; padding: 3px 8px; border-radius: 9999px;
+                         background: var(--ink); color: var(--paper); flex-shrink: 0; }
+    .match__badge-loss { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: bold;
+                         letter-spacing: 1px; padding: 3px 8px; border-radius: 9999px;
+                         background: transparent; color: var(--ink); border: 1px solid var(--ink); flex-shrink: 0; }
 
-    /* Top champs — stacked rows */
-    .champs { display: flex; flex-direction: column; gap: 3px; flex: 1; min-height: 0; overflow: hidden; }
-    .champ-row { display: flex; align-items: center; gap: 7px; }
-    .champ-row__rank { width: 17px; height: 17px; border-radius: 9999px; border: 1px solid var(--ink);
+    /* ── Champion row — matches renderChampionRow() ── */
+    .champ-row { background: var(--paper-light); border: 1px solid var(--ink); border-radius: 10px;
+                 padding: 7px; height: 50px; display: flex; align-items: center; gap: 10px;
+                 margin-bottom: 6px; overflow: hidden; }
+    .champ-row__rank { width: 20px; height: 20px; border-radius: 9999px; border: 1px solid var(--ink);
                        display: flex; align-items: center; justify-content: center;
-                       font-size: 8px; font-weight: bold; flex-shrink: 0; }
+                       font-size: 10px; font-weight: bold; font-family: Georgia, serif; flex-shrink: 0; }
     .champ-row__rank--first { background: var(--ink); color: var(--paper); }
-    .champ-row__img  { width: 27px; height: 27px; border-radius: 9999px; object-fit: cover; flex-shrink: 0; }
+    .champ-row__rank--other { background: transparent; color: var(--ink); }
+    .champ-row__img-wrap { width: 34px; height: 34px; border-radius: 9999px; overflow: hidden;
+                           border: 1px solid var(--ink); flex-shrink: 0; }
+    .champ-row__img  { display: block; width: 34px; height: 34px; object-fit: cover; }
     .champ-row__info { flex: 1; min-width: 0; }
-    .champ-row__name  { font-size: 9px; font-weight: bold; }
-    .champ-row__games { font-size: 7px; color: var(--ink-muted); }
-    .champ-row__bar-wrap { flex-shrink: 0; width: 80px; }
-    .champ-row__bar-bg   { height: 3px; background: var(--paper-darker); border-radius: 2px; }
-    .champ-row__bar-fill { height: 3px; background: var(--ink); border-radius: 2px; }
-    .champ-row__pct { font-size: 8px; font-weight: bold; text-align: right; margin-top: 1px; }
+    .champ-row__name  { font-size: 14px; font-weight: bold; font-family: Georgia, serif; line-height: 1; }
+    .champ-row__games { font-size: 9px; letter-spacing: 0.5px; font-family: 'Helvetica Neue', Arial, sans-serif;
+                        color: var(--ink-muted); margin-top: 2px; }
+    .champ-row__bar-wrap { width: 140px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .champ-row__bar-bg   { flex: 1; height: 4px; background: var(--paper-darker); border-radius: 2px;
+                            overflow: hidden; border: 1px solid var(--ink); }
+    .champ-row__bar-fill { height: 100%; background: var(--ink); }
+    .champ-row__pct { font-size: 13px; font-weight: bold; font-family: Georgia, serif;
+                      letter-spacing: -0.3px; min-width: 32px; text-align: right; }
 
-    .unavailable { font-size: 10px; color: var(--ink-muted); font-style: italic; padding: 4px 0; }
+    /* ── Footer — matches renderFooter() ── */
+    .footer { display: flex; align-items: center; justify-content: center; gap: 10px; padding-top: 10px; }
+    .footer__line { flex: 1; height: 1px; background: var(--ink); opacity: 0.3; max-width: 140px; }
+    .footer__text { font-family: Georgia, serif; font-size: 11px; letter-spacing: 3px;
+                    color: var(--ink); font-style: italic; }
+
+    .unavailable { font-size: 12px; color: var(--ink-muted); }
   </style>
 </head>
 <body class="environment trmnl">
 <div class="screen">
-<div class="view view--full">
+<div class="view view--{{ size }}">
+<div class="layout">
 
-<div class="dash">
-
-  <!-- Title bar -->
-  <div class="dash__title-bar">
-    <span class="dash__title">{% if steam_username %}{{ steam_username }}{% else %}AutumnFaun{% endif %} Dashboard</span>
-  </div>
-
-  <!-- ── Steam (top half) ── -->
-  <div class="section">
-    <div class="section__header">
-      Steam{% if steam_username %} &mdash; {{ steam_username }}{% if steam_online %} &bull; online{% endif %}{% endif %}
+  <!-- ── Steam ── -->
+  <div style="margin-bottom:10px;">
+    <div class="sec-hdr">
+      <span class="sec-hdr__label">Steam</span>
+      <div class="sec-hdr__line"></div>
+      {% if steam_username %}
+      <span class="sec-hdr__meta">{{ steam_username }} &middot; {% if steam_online %}online{% else %}offline{% endif %}</span>
+      {% else %}
+      <span class="sec-hdr__meta">unavailable</span>
+      {% endif %}
     </div>
 
     {% if steam_username %}
-    <div class="steam__main">
-      {% if steam_now_playing %}
-      <div class="now-playing">
-        {% if steam_now_playing_img %}<img class="now-playing__img" src="{{ steam_now_playing_img }}" alt="">{% endif %}
-        <div class="now-playing__info">
-          <div class="now-playing__label">NOW PLAYING <span class="now-playing__live">&bull; LIVE</span></div>
-          <div class="now-playing__name">{{ steam_now_playing }}</div>
-        </div>
+
+    <!-- Now Playing -->
+    {% if steam_now_playing %}
+    <div class="now-playing">
+      {% if steam_now_playing_img %}
+      <div class="now-playing__img-wrap">
+        <img class="now-playing__img" src="{{ steam_now_playing_img }}" alt="">
       </div>
       {% endif %}
-
-      {% for game in steam_games %}
-      <div class="game-card">
-        {% if game.img %}<img class="game-card__img" src="{{ game.img }}" alt="">{% endif %}
-        <div class="game-card__name">{{ game.name }}</div>
-        <div class="game-card__hours">{{ game.hours }}</div>
-        <div class="game-card__played">PLAYED</div>
+      <div class="now-playing__info">
+        <div class="now-playing__top">
+          <span class="now-playing__badge">NOW PLAYING</span>
+          <span class="now-playing__live">&#8226; LIVE</span>
+        </div>
+        <div class="now-playing__name">{{ steam_now_playing }}</div>
       </div>
-      {% endfor %}
-    </div>
-
-    {% if steam_total_games %}
-    <div class="total-games">
-      <div class="total-games__count">{{ steam_total_games }}</div>
-      <div class="total-games__label">Games Owned</div>
     </div>
     {% endif %}
 
+    <!-- Game cards (2-col grid) + Total Games -->
+    <table class="card-grid">
+      {% assign games = steam_games %}
+      {% assign total_shown = false %}
+
+      <!-- Row 1: game[0] | game[1] -->
+      <tr>
+        <td>
+          {% if games[0] %}
+          <div class="game-card">
+            <table class="game-card__table">
+              <tr>
+                <td class="game-card__img-cell" rowspan="2">
+                  <div class="game-card__img-wrap">
+                    {% if games[0].img %}<img class="game-card__img" src="{{ games[0].img }}" alt="">{% endif %}
+                  </div>
+                </td>
+                <td style="vertical-align:top;padding-top:2px;">
+                  <div class="game-card__name">{{ games[0].name }}</div>
+                </td>
+              </tr>
+              <tr>
+                <td class="game-card__foot">
+                  <div class="game-card__foot-row">
+                    <span class="game-card__played">PLAYED</span>
+                    <span class="game-card__hours">{{ games[0].hours }}<span class="game-card__h">h</span></span>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </div>
+          {% endif %}
+        </td>
+        <td>
+          {% if games[1] %}
+          <div class="game-card">
+            <table class="game-card__table">
+              <tr>
+                <td class="game-card__img-cell" rowspan="2">
+                  <div class="game-card__img-wrap">
+                    {% if games[1].img %}<img class="game-card__img" src="{{ games[1].img }}" alt="">{% endif %}
+                  </div>
+                </td>
+                <td style="vertical-align:top;padding-top:2px;">
+                  <div class="game-card__name">{{ games[1].name }}</div>
+                </td>
+              </tr>
+              <tr>
+                <td class="game-card__foot">
+                  <div class="game-card__foot-row">
+                    <span class="game-card__played">PLAYED</span>
+                    <span class="game-card__hours">{{ games[1].hours }}<span class="game-card__h">h</span></span>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+
+      <!-- Row 2: game[2] | Total Games -->
+      <tr>
+        <td>
+          {% if games[2] %}
+          <div class="game-card">
+            <table class="game-card__table">
+              <tr>
+                <td class="game-card__img-cell" rowspan="2">
+                  <div class="game-card__img-wrap">
+                    {% if games[2].img %}<img class="game-card__img" src="{{ games[2].img }}" alt="">{% endif %}
+                  </div>
+                </td>
+                <td style="vertical-align:top;padding-top:2px;">
+                  <div class="game-card__name">{{ games[2].name }}</div>
+                </td>
+              </tr>
+              <tr>
+                <td class="game-card__foot">
+                  <div class="game-card__foot-row">
+                    <span class="game-card__played">PLAYED</span>
+                    <span class="game-card__hours">{{ games[2].hours }}<span class="game-card__h">h</span></span>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </div>
+          {% endif %}
+        </td>
+        <td>
+          {% if steam_total_games %}
+          <div class="total-games">
+            <div class="total-games__count">{{ steam_total_games }}</div>
+            <div class="total-games__right">
+              <div class="total-games__total">TOTAL</div>
+              <div class="total-games__label">Games<br>Owned</div>
+            </div>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+
     {% else %}
-    <div class="unavailable">Steam data unavailable</div>
+    <p class="unavailable">Steam data unavailable</p>
     {% endif %}
   </div>
 
-  <!-- ── League (bottom half) ── -->
-  <div class="section">
-    <div class="section__header">League of Legends</div>
+  <!-- ── League of Legends ── -->
+  <div style="margin-bottom:10px;">
+    <div class="sec-hdr">
+      <span class="sec-hdr__label">League of Legends</span>
+      <div class="sec-hdr__line"></div>
+      <span class="sec-hdr__meta">All Game Modes</span>
+    </div>
 
     {% if league_name %}
+
+    <!-- Profile banner -->
     <div class="profile">
-      {% if league_icon %}<img class="profile__icon" src="{{ league_icon }}" alt="">{% endif %}
+      {% if league_icon %}
+      <div class="profile__icon-wrap">
+        <img class="profile__icon" src="{{ league_icon }}" alt="">
+      </div>
+      {% endif %}
       <div class="profile__info">
-        <div class="profile__name">{{ league_name }}</div>
-        <div class="profile__tag">{{ league_tag }}</div>
+        <div class="profile__name">
+          {{ league_name }}<span class="profile__tag">{{ league_tag }}</span>
+        </div>
+        <div class="profile__lv-label">SUMMONER LEVEL</div>
       </div>
-      <div class="profile__level-wrap">
-        <div class="profile__level">{{ league_level }}</div>
-        <div class="profile__level-label">SUMMONER LEVEL</div>
-      </div>
+      <div class="profile__level">{{ league_level }}</div>
     </div>
 
-    <div class="matches">
-      {% for match in league_matches %}
-      <div class="match {% if match.win %}match--win{% else %}match--loss{% endif %}">
-        <div class="match__top">
-          {% if match.img %}<img class="match__img" src="{{ match.img }}" alt="">{% endif %}
-          <span class="match__champ">{{ match.champion }}</span>
-          <span class="match__badge {% if match.win %}match__badge--win{% else %}match__badge--loss{% endif %}">
-            {% if match.win %}W{% else %}L{% endif %}
-          </span>
-        </div>
-        <div class="match__queue">{{ match.queue }}</div>
-        <div class="match__kda">{{ match.kda }}</div>
-      </div>
-      {% endfor %}
-    </div>
+    <!-- Match cards (2-col grid) -->
+    <table class="card-grid">
+      {% assign matches = league_matches %}
 
-    <div class="champs">
-      {% for champ in league_top_champs %}
-      <div class="champ-row">
-        <div class="champ-row__rank {% if champ.rank == 1 %}champ-row__rank--first{% endif %}">{{ champ.rank }}</div>
-        {% if champ.img %}<img class="champ-row__img" src="{{ champ.img }}" alt="">{% endif %}
-        <div class="champ-row__info">
-          <div class="champ-row__name">{{ champ.name }}</div>
-          <div class="champ-row__games">{{ champ.games }} games played</div>
-        </div>
-        <div class="champ-row__bar-wrap">
-          <div class="champ-row__bar-bg">
-            <div class="champ-row__bar-fill" style="width:{{ champ.winrate }}%;"></div>
+      <!-- Row 1: match[0] | match[1] -->
+      <tr>
+        <td>
+          {% if matches[0] %}
+          <div class="match {% if matches[0].win %}match--win{% else %}match--loss{% endif %}">
+            <div class="match__img-wrap">
+              {% if matches[0].img %}<img class="match__img" src="{{ matches[0].img }}" alt="">{% endif %}
+            </div>
+            <div class="match__meta">
+              <div class="match__queue">{{ matches[0].queue }}</div>
+              <div class="match__kda">
+                {% assign kda = matches[0].kda | split: "/" %}
+                {{ kda[0] }}<span class="match__kda-sep">/</span>{{ kda[1] }}<span class="match__kda-sep">/</span>{{ kda[2] }}
+              </div>
+            </div>
+            {% if matches[0].win %}
+            <span class="match__badge-win">W</span>
+            {% else %}
+            <span class="match__badge-loss">L</span>
+            {% endif %}
           </div>
-          <div class="champ-row__pct">{{ champ.winrate }}%</div>
-        </div>
+          {% endif %}
+        </td>
+        <td>
+          {% if matches[1] %}
+          <div class="match {% if matches[1].win %}match--win{% else %}match--loss{% endif %}">
+            <div class="match__img-wrap">
+              {% if matches[1].img %}<img class="match__img" src="{{ matches[1].img }}" alt="">{% endif %}
+            </div>
+            <div class="match__meta">
+              <div class="match__queue">{{ matches[1].queue }}</div>
+              <div class="match__kda">
+                {% assign kda = matches[1].kda | split: "/" %}
+                {{ kda[0] }}<span class="match__kda-sep">/</span>{{ kda[1] }}<span class="match__kda-sep">/</span>{{ kda[2] }}
+              </div>
+            </div>
+            {% if matches[1].win %}
+            <span class="match__badge-win">W</span>
+            {% else %}
+            <span class="match__badge-loss">L</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+
+      <!-- Row 2: match[2] | match[3] -->
+      <tr>
+        <td>
+          {% if matches[2] %}
+          <div class="match {% if matches[2].win %}match--win{% else %}match--loss{% endif %}">
+            <div class="match__img-wrap">
+              {% if matches[2].img %}<img class="match__img" src="{{ matches[2].img }}" alt="">{% endif %}
+            </div>
+            <div class="match__meta">
+              <div class="match__queue">{{ matches[2].queue }}</div>
+              <div class="match__kda">
+                {% assign kda = matches[2].kda | split: "/" %}
+                {{ kda[0] }}<span class="match__kda-sep">/</span>{{ kda[1] }}<span class="match__kda-sep">/</span>{{ kda[2] }}
+              </div>
+            </div>
+            {% if matches[2].win %}
+            <span class="match__badge-win">W</span>
+            {% else %}
+            <span class="match__badge-loss">L</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </td>
+        <td>
+          {% if matches[3] %}
+          <div class="match {% if matches[3].win %}match--win{% else %}match--loss{% endif %}">
+            <div class="match__img-wrap">
+              {% if matches[3].img %}<img class="match__img" src="{{ matches[3].img }}" alt="">{% endif %}
+            </div>
+            <div class="match__meta">
+              <div class="match__queue">{{ matches[3].queue }}</div>
+              <div class="match__kda">
+                {% assign kda = matches[3].kda | split: "/" %}
+                {{ kda[0] }}<span class="match__kda-sep">/</span>{{ kda[1] }}<span class="match__kda-sep">/</span>{{ kda[2] }}
+              </div>
+            </div>
+            {% if matches[3].win %}
+            <span class="match__badge-win">W</span>
+            {% else %}
+            <span class="match__badge-loss">L</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+    </table>
+
+    <!-- Champion rows -->
+    {% for champ in league_top_champs %}
+    <div class="champ-row">
+      <div class="champ-row__rank {% if champ.rank == 1 %}champ-row__rank--first{% else %}champ-row__rank--other{% endif %}">
+        {{ champ.rank }}
       </div>
-      {% endfor %}
+      {% if champ.img %}
+      <div class="champ-row__img-wrap">
+        <img class="champ-row__img" src="{{ champ.img }}" alt="">
+      </div>
+      {% endif %}
+      <div class="champ-row__info">
+        <div class="champ-row__name">{{ champ.name }}</div>
+        <div class="champ-row__games">{{ champ.games }} games played</div>
+      </div>
+      <div class="champ-row__bar-wrap">
+        <div class="champ-row__bar-bg">
+          <div class="champ-row__bar-fill" style="width:{{ champ.winrate }}%;"></div>
+        </div>
+        <span class="champ-row__pct">{{ champ.winrate }}%</span>
+      </div>
     </div>
+    {% endfor %}
 
     {% else %}
-    <div class="unavailable">League data unavailable</div>
+    <p class="unavailable">League data unavailable</p>
     {% endif %}
   </div>
 
-</div><!-- /.dash -->
+  <!-- ── Footer ── -->
+  <div class="footer">
+    <div class="footer__line"></div>
+    <span class="footer__text">{% if steam_username %}{{ steam_username }}{% else %}AutumnFaun{% endif %} Dashboard</span>
+    <div class="footer__line"></div>
+  </div>
+
+</div>
 </div>
 </div>
 </body>
