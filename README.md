@@ -82,6 +82,27 @@ The visual design matches the React dashboard component-by-component — same co
 
 ---
 
+## Alternative: TRMNL + KOReader
+
+[TRMNL](https://usetrmnl.com/) is a cloud-based e-ink dashboard service. Combined with [KOReader](https://koreader.rocks/) — open-source reader software that runs on Kindle, Kobo, PocketBook, and other devices — it provides a simpler setup path that skips the jailbreak entirely.
+
+| Approach | Setup | Hardware | Offline? |
+|---|---|---|---|
+| **Fullscreen browser** (Kindle jailbreak) | Medium — jailbreak + KUAL required | Kindle Paperwhite | ✅ LAN only |
+| **TRMNL + KOReader** | Low — cloud service handles rendering | Any KOReader-compatible e-ink device | ❌ Needs internet |
+
+### How it works
+
+1. TRMNL polls your server's `/api/trmnl` endpoint for JSON data (Steam + League)
+2. TRMNL renders the plugin's Liquid template on its cloud infrastructure (modern browser, full CSS support)
+3. The rendered image is pushed to your KOReader device via TRMNL's BYOD client
+
+### Setup
+
+See [`trmnl-plugin/README.md`](trmnl-plugin/README.md) for step-by-step plugin configuration.
+
+---
+
 ## Features
 
 | Section | Details |
