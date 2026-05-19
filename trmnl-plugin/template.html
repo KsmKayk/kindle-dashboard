@@ -20,6 +20,7 @@
       display: flex;
       flex-direction: column;
       width: 100%;
+      height: 100%;
       gap: 14px;
     }
 
@@ -33,7 +34,7 @@
     .sec-hdr__line { flex: 1; height: 1px; background: var(--ink); }
     .sec-hdr__meta {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 12px; letter-spacing: 1.5px;
+      font-size: 12px;
       color: var(--ink-muted); white-space: nowrap;
     }
 
@@ -52,11 +53,11 @@
     .now-playing__top { display: flex; justify-content: space-between; margin-bottom: 5px; }
     .now-playing__badge {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 11px; font-weight: bold; letter-spacing: 2.2px; color: var(--ink-muted);
+      font-size: 11px; font-weight: bold; color: var(--ink-muted);
     }
     .now-playing__live {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 11px; font-weight: bold; letter-spacing: 1.5px; color: var(--ink);
+      font-size: 11px; font-weight: bold; color: var(--ink);
     }
     .now-playing__name {
       font-size: 22px; font-weight: bold; font-family: Georgia, serif;
@@ -91,7 +92,7 @@
     .game-card__footer { display: flex; justify-content: space-between; align-items: baseline; }
     .game-card__played {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 10px; letter-spacing: 1.5px; color: var(--ink-muted);
+      font-size: 11px; color: var(--ink-muted);
     }
     .game-card__hours {
       font-size: 20px; font-weight: bold; font-family: Georgia, serif;
@@ -111,7 +112,7 @@
     .total-games__right { border-left: 1px solid var(--paper); padding-left: 14px; }
     .total-games__total {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 11px; letter-spacing: 2px; opacity: 0.75; margin-bottom: 3px;
+      font-size: 11px; opacity: 0.75; margin-bottom: 3px;
     }
     .total-games__label {
       font-family: Georgia, serif; font-size: 16px; font-weight: bold; line-height: 1.2;
@@ -135,7 +136,7 @@
     }
     .profile__tag { color: var(--ink-muted); font-weight: normal; font-size: 16px; }
     .profile__lv-label {
-      font-size: 11px; letter-spacing: 2px;
+      font-size: 11px;
       font-family: 'Helvetica Neue', Arial, sans-serif;
       color: var(--ink-muted); margin-top: 4px;
     }
@@ -158,7 +159,7 @@
     .match__img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .match__meta { flex: 1; min-width: 0; }
     .match__queue {
-      font-size: 10px; letter-spacing: 1.2px;
+      font-size: 11px;
       font-family: 'Helvetica Neue', Arial, sans-serif;
       color: var(--ink-muted); text-transform: uppercase; overflow: hidden;
       white-space: nowrap; text-overflow: ellipsis;
@@ -170,12 +171,12 @@
     .match__kda-sep { color: var(--ink-muted); margin: 0 2px; }
     .match__badge-win {
       font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: bold;
-      letter-spacing: 1px; padding: 4px 10px; border-radius: 9999px;
+      padding: 4px 10px; border-radius: 9999px;
       background: var(--ink); color: var(--paper); flex-shrink: 0;
     }
     .match__badge-loss {
       font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: bold;
-      letter-spacing: 1px; padding: 4px 10px; border-radius: 9999px;
+      padding: 4px 10px; border-radius: 9999px;
       background: transparent; color: var(--ink); border: 1px solid var(--ink); flex-shrink: 0;
     }
 
@@ -202,7 +203,7 @@
       font-size: 16px; font-weight: bold; font-family: Georgia, serif; line-height: 1;
     }
     .champ-row__games {
-      font-size: 11px; letter-spacing: 0.5px;
+      font-size: 11px;
       font-family: 'Helvetica Neue', Arial, sans-serif;
       color: var(--ink-muted); margin-top: 3px;
     }
@@ -306,7 +307,7 @@
       <div class="sec-hdr">
         <span class="sec-hdr__label">League of Legends</span>
         <div class="sec-hdr__line"></div>
-        <span class="sec-hdr__meta">All Game Modes</span>
+        <span class="sec-hdr__meta">All Modes</span>
       </div>
 
       {% if league_name %}
