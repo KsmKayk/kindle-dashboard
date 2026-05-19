@@ -15,218 +15,204 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: var(--paper); color: var(--ink); }
 
-    /* Force sections to stack vertically — overrides TRMNL's flex-row layout */
+    /* Pin canvas to Kindle 800×600 */
+    .layout {
+      width: 800px !important;
+      height: 600px !important;
+      overflow: hidden;
+      padding: 0 !important;
+    }
+
+    /* Force vertical stacking, fill the full canvas */
     .dash {
       display: flex;
       flex-direction: column;
       width: 100%;
       height: 100%;
-      gap: 14px;
+      padding: 10px 12px;
+      gap: 8px;
     }
 
     /* ── Section header ── */
-    .sec-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .sec-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
     .sec-hdr__label {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 14px; font-weight: bold; letter-spacing: 2.5px;
+      font-size: 11px; font-weight: bold; letter-spacing: 2px;
       color: var(--ink); white-space: nowrap; text-transform: uppercase;
     }
     .sec-hdr__line { flex: 1; height: 1px; background: var(--ink); }
     .sec-hdr__meta {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 12px;
-      color: var(--ink-muted); white-space: nowrap;
+      font-size: 10px; color: var(--ink-muted); white-space: nowrap;
     }
 
     /* ── Now Playing ── */
     .now-playing {
       background: var(--paper-light); border: 1px solid var(--ink);
-      border-radius: 10px; padding: 12px; margin-bottom: 10px;
-      display: flex; align-items: center; gap: 14px; overflow: hidden;
+      border-radius: 8px; padding: 8px; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 10px; overflow: hidden;
     }
     .now-playing__img-wrap {
-      width: 64px; height: 64px; border-radius: 6px;
+      width: 52px; height: 52px; border-radius: 5px;
       overflow: hidden; border: 1px solid var(--ink); flex-shrink: 0;
     }
     .now-playing__img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .now-playing__info { flex: 1; min-width: 0; }
-    .now-playing__top { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .now-playing__top { display: flex; justify-content: space-between; margin-bottom: 3px; }
     .now-playing__badge {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 11px; font-weight: bold; color: var(--ink-muted);
+      font-size: 10px; font-weight: bold; color: var(--ink-muted);
     }
     .now-playing__live {
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 11px; font-weight: bold; color: var(--ink);
+      font-size: 10px; font-weight: bold; color: var(--ink);
     }
     .now-playing__name {
-      font-size: 22px; font-weight: bold; font-family: Georgia, serif;
-      letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-size: 15px; font-weight: bold; font-family: Georgia, serif;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
 
     /* ── 2-column card grid ── */
     .card-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-bottom: 8px;
+      gap: 6px;
+      margin-bottom: 6px;
     }
 
     /* ── Game card ── */
     .game-card {
       background: var(--paper-light); border: 1px solid var(--ink);
-      border-radius: 10px; padding: 10px; overflow: hidden;
-      display: flex; align-items: center; gap: 12px;
+      border-radius: 8px; padding: 8px; overflow: hidden;
+      display: flex; align-items: center; gap: 10px;
     }
     .game-card__img-wrap {
-      width: 66px; height: 66px; border-radius: 6px;
+      width: 52px; height: 52px; border-radius: 5px;
       overflow: hidden; border: 1px solid var(--ink); flex-shrink: 0;
     }
     .game-card__img { display: block; width: 100%; height: 100%; object-fit: cover; }
-    .game-card__info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; height: 66px; }
+    .game-card__info {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; justify-content: space-between; height: 52px;
+    }
     .game-card__name {
-      font-size: 14px; font-weight: bold; font-family: Georgia, serif;
-      color: var(--ink); line-height: 1.25; overflow: hidden;
+      font-size: 13px; font-weight: bold; font-family: Georgia, serif;
+      color: var(--ink); line-height: 1.2; overflow: hidden;
       display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     }
     .game-card__footer { display: flex; justify-content: space-between; align-items: baseline; }
-    .game-card__played {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 11px; color: var(--ink-muted);
-    }
+    .game-card__played { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10px; color: var(--ink-muted); }
     .game-card__hours {
-      font-size: 20px; font-weight: bold; font-family: Georgia, serif;
-      color: var(--ink); letter-spacing: -0.5px; line-height: 1;
+      font-size: 16px; font-weight: bold; font-family: Georgia, serif;
+      color: var(--ink); line-height: 1;
     }
-    .game-card__h { font-size: 13px; font-weight: normal; }
+    .game-card__h { font-size: 11px; font-weight: normal; }
 
     /* ── Total games ── */
     .total-games {
-      background: var(--ink); color: var(--paper); border-radius: 10px;
-      padding: 10px; display: flex; align-items: center; gap: 14px; overflow: hidden;
+      background: var(--ink); color: var(--paper); border-radius: 8px;
+      padding: 8px; display: flex; align-items: center; gap: 12px; overflow: hidden;
     }
     .total-games__count {
-      font-family: Georgia, serif; font-size: 52px; font-weight: bold;
-      line-height: 1; letter-spacing: -2px; flex-shrink: 0;
+      font-family: Georgia, serif; font-size: 36px; font-weight: bold;
+      line-height: 1; letter-spacing: -1.5px; flex-shrink: 0;
     }
-    .total-games__right { border-left: 1px solid var(--paper); padding-left: 14px; }
-    .total-games__total {
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      font-size: 11px; opacity: 0.75; margin-bottom: 3px;
-    }
-    .total-games__label {
-      font-family: Georgia, serif; font-size: 16px; font-weight: bold; line-height: 1.2;
-    }
+    .total-games__right { border-left: 1px solid var(--paper); padding-left: 12px; }
+    .total-games__total { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10px; opacity: 0.75; margin-bottom: 2px; }
+    .total-games__label { font-family: Georgia, serif; font-size: 13px; font-weight: bold; line-height: 1.2; }
 
     /* ── Profile banner ── */
     .profile {
       background: var(--paper-light); border: 1px solid var(--ink);
-      border-radius: 10px; display: flex; align-items: center;
-      padding: 14px; gap: 16px; margin-bottom: 10px; overflow: hidden;
+      border-radius: 8px; display: flex; align-items: center;
+      padding: 10px; gap: 12px; margin-bottom: 6px; overflow: hidden;
     }
     .profile__icon-wrap {
-      width: 52px; height: 52px; border-radius: 9999px;
+      width: 44px; height: 44px; border-radius: 9999px;
       border: 1px solid var(--ink); overflow: hidden; flex-shrink: 0;
     }
     .profile__icon { display: block; width: 100%; height: 100%; object-fit: cover; }
     .profile__info { flex: 1; min-width: 0; }
     .profile__name {
-      font-size: 22px; font-weight: bold; font-family: Georgia, serif;
-      letter-spacing: -0.3px; line-height: 1.1;
+      font-size: 16px; font-weight: bold; font-family: Georgia, serif; line-height: 1.1;
     }
-    .profile__tag { color: var(--ink-muted); font-weight: normal; font-size: 16px; }
-    .profile__lv-label {
-      font-size: 11px;
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      color: var(--ink-muted); margin-top: 4px;
-    }
+    .profile__tag { color: var(--ink-muted); font-weight: normal; font-size: 12px; }
+    .profile__lv-label { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10px; color: var(--ink-muted); margin-top: 3px; }
     .profile__level {
-      font-size: 34px; font-weight: bold; font-family: Georgia, serif;
-      line-height: 1; letter-spacing: -1px; text-align: right; flex-shrink: 0;
+      font-size: 26px; font-weight: bold; font-family: Georgia, serif;
+      line-height: 1; text-align: right; flex-shrink: 0;
     }
 
     /* ── Match card ── */
     .match {
-      border: 1px solid var(--ink); border-radius: 10px;
-      padding: 10px; display: flex; align-items: center; gap: 10px; overflow: hidden;
+      border: 1px solid var(--ink); border-radius: 8px;
+      padding: 8px; display: flex; align-items: center; gap: 8px; overflow: hidden;
     }
     .match--win  { background: var(--paper-light); }
     .match--loss { background: var(--paper-dark); }
     .match__img-wrap {
-      width: 44px; height: 44px; border-radius: 9999px;
+      width: 38px; height: 38px; border-radius: 9999px;
       overflow: hidden; border: 1px solid var(--ink); flex-shrink: 0;
     }
     .match__img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .match__meta { flex: 1; min-width: 0; }
     .match__queue {
-      font-size: 11px;
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      color: var(--ink-muted); text-transform: uppercase; overflow: hidden;
-      white-space: nowrap; text-overflow: ellipsis;
+      font-size: 10px; font-family: 'Helvetica Neue', Arial, sans-serif;
+      color: var(--ink-muted); text-transform: uppercase;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .match__kda {
-      font-size: 17px; font-weight: bold; font-family: Georgia, serif;
-      line-height: 1.2; margin-top: 2px;
-    }
-    .match__kda-sep { color: var(--ink-muted); margin: 0 2px; }
+    .match__kda { font-size: 13px; font-weight: bold; font-family: Georgia, serif; line-height: 1.2; margin-top: 2px; }
+    .match__kda-sep { color: var(--ink-muted); margin: 0 1px; }
     .match__badge-win {
-      font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: bold;
-      padding: 4px 10px; border-radius: 9999px;
+      font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: bold;
+      padding: 3px 8px; border-radius: 9999px;
       background: var(--ink); color: var(--paper); flex-shrink: 0;
     }
     .match__badge-loss {
-      font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 13px; font-weight: bold;
-      padding: 4px 10px; border-radius: 9999px;
+      font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; font-weight: bold;
+      padding: 3px 8px; border-radius: 9999px;
       background: transparent; color: var(--ink); border: 1px solid var(--ink); flex-shrink: 0;
     }
 
     /* ── Champion row ── */
     .champ-row {
       background: var(--paper-light); border: 1px solid var(--ink);
-      border-radius: 10px; padding: 9px; display: flex; align-items: center;
-      gap: 12px; margin-bottom: 8px; overflow: hidden;
+      border-radius: 8px; padding: 7px; display: flex; align-items: center;
+      gap: 10px; margin-bottom: 6px; overflow: hidden;
     }
+    .champ-row:last-child { margin-bottom: 0; }
     .champ-row__rank {
-      width: 24px; height: 24px; border-radius: 9999px; border: 1px solid var(--ink);
+      width: 20px; height: 20px; border-radius: 9999px; border: 1px solid var(--ink);
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: bold; font-family: Georgia, serif; flex-shrink: 0;
+      font-size: 10px; font-weight: bold; font-family: Georgia, serif; flex-shrink: 0;
     }
     .champ-row__rank--first { background: var(--ink); color: var(--paper); }
     .champ-row__rank--other { background: transparent; color: var(--ink); }
     .champ-row__img-wrap {
-      width: 40px; height: 40px; border-radius: 9999px;
+      width: 32px; height: 32px; border-radius: 9999px;
       overflow: hidden; border: 1px solid var(--ink); flex-shrink: 0;
     }
     .champ-row__img { display: block; width: 100%; height: 100%; object-fit: cover; }
     .champ-row__info { flex: 1; min-width: 0; }
-    .champ-row__name {
-      font-size: 16px; font-weight: bold; font-family: Georgia, serif; line-height: 1;
-    }
-    .champ-row__games {
-      font-size: 11px;
-      font-family: 'Helvetica Neue', Arial, sans-serif;
-      color: var(--ink-muted); margin-top: 3px;
-    }
-    .champ-row__bar-wrap { width: 30%; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .champ-row__name { font-size: 13px; font-weight: bold; font-family: Georgia, serif; line-height: 1; }
+    .champ-row__games { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10px; color: var(--ink-muted); margin-top: 2px; }
+    .champ-row__bar-wrap { width: 28%; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
     .champ-row__bar-bg {
-      flex: 1; height: 5px; background: var(--paper-darker); border-radius: 2px;
+      flex: 1; height: 4px; background: var(--paper-darker); border-radius: 2px;
       overflow: hidden; border: 1px solid var(--ink);
     }
     .champ-row__bar-fill { height: 100%; background: var(--ink); }
-    .champ-row__pct {
-      font-size: 15px; font-weight: bold; font-family: Georgia, serif;
-      letter-spacing: -0.3px; min-width: 38px; text-align: right;
-    }
+    .champ-row__pct { font-size: 12px; font-weight: bold; font-family: Georgia, serif; min-width: 30px; text-align: right; }
 
     /* ── Footer ── */
-    .footer { display: flex; align-items: center; justify-content: center; gap: 10px; padding-top: 6px; }
+    .footer { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
     .footer__line { flex: 1; height: 1px; background: var(--ink); opacity: 0.3; }
     .footer__text {
-      font-family: Georgia, serif; font-size: 13px; letter-spacing: 3px;
+      font-family: Georgia, serif; font-size: 11px; letter-spacing: 2px;
       color: var(--ink); font-style: italic; white-space: nowrap;
     }
 
-    .unavailable { font-size: 14px; color: var(--ink-muted); }
+    .unavailable { font-size: 12px; color: var(--ink-muted); }
   </style>
 </head>
 <body class="environment trmnl">
