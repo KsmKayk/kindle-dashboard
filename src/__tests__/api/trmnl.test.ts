@@ -69,6 +69,7 @@ describe('GET /api/trmnl', () => {
     const body = await res.json()
     expect(body.steam_username).toBeNull()
     expect(body.steam_games).toEqual([])
+    expect(body.steam_online).toBe(false)
     expect(body.league_name).toBe('AutumnFaun')
   })
 
