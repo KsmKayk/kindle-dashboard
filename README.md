@@ -27,6 +27,12 @@ The main app is a full React/Next.js dashboard for modern browsers. For the Kind
 
 </div>
 
+<div align="center">
+
+![Main browser dashboard](github/assets/dashboard-main.png)
+
+</div>
+
 ---
 
 ## The Rendering Challenge — How to Make It Work on a Kindle
