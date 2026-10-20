@@ -27,9 +27,9 @@ export function useSpotifyData(): SpotifyState & {
   const lastTrackId = useRef<string | null>(null)
   const lastPollMs = useRef<number>(0)
 
-  const fetchLyrics = useCallback(async (title: string, artist: string, album: string) => {
+  const fetchLyrics = useCallback(async (title: string, artist: string, album: string, durationMs: number) => {
     try {
-      const params = new URLSearchParams({ title, artist, album })
+      const params = new URLSearchParams({ title, artist, album, durationMs: String(durationMs) })
       const res = await fetch(`/api/spotify/lyrics?${params}`)
       setLyrics(res.ok ? await res.json() : null)
     } catch {
@@ -49,7 +49,7 @@ export function useSpotifyData(): SpotifyState & {
       if (data.track && data.track.id !== lastTrackId.current) {
         lastTrackId.current = data.track.id
         setLyrics(null)
-        fetchLyrics(data.track.title, data.track.artist, data.track.album)
+        fetchLyrics(data.track.title, data.track.artist, data.track.album, data.track.durationMs)
       }
     } catch {
       // keep previous state on network error

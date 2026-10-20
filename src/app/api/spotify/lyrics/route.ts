@@ -8,13 +8,14 @@ export async function GET(request: NextRequest) {
   const title = request.nextUrl.searchParams.get('title') ?? ''
   const artist = request.nextUrl.searchParams.get('artist') ?? ''
   const album = request.nextUrl.searchParams.get('album') ?? ''
+  const durationMs = Number(request.nextUrl.searchParams.get('durationMs')) || undefined
 
   if (!title || !artist) {
     return NextResponse.json({ error: 'title and artist required' }, { status: 400 })
   }
 
   try {
-    const data = await getLyrics(title, artist, album)
+    const data = await getLyrics(title, artist, album, durationMs)
     if (!data) return NextResponse.json(null)
     return NextResponse.json(data, {
       headers: { 'Cache-Control': 'public, max-age=3600' },

@@ -86,22 +86,55 @@ export async function getCurrentlyPlaying(accessToken: string): Promise<SpotifyP
   }
 }
 
-export async function getLyrics(title: string, artist: string, album: string): Promise<LyricsData | null> {
-  const base = process.env.LRCLIB_API_URL ?? 'https://lrclib.net/api/'
-  const url = new URL('get', base)
-  url.searchParams.set('track_name', title)
-  url.searchParams.set('artist_name', artist)
-  url.searchParams.set('album_name', album)
+interface LrcLibRecord {
+  duration?: number
+  syncedLyrics?: string | null
+  plainLyrics?: string | null
+}
 
-  const res = await fetch(url.toString())
-  if (!res.ok) return null
-
-  const data = await res.json()
-  const synced = data.syncedLyrics ? parseLrcLibResponse(data.syncedLyrics) : []
-  const plain = data.plainLyrics ? data.plainLyrics.split('\n').filter(Boolean) : []
-
+function toLyricsData(record: LrcLibRecord): LyricsData | null {
+  const synced = record.syncedLyrics ? parseLrcLibResponse(record.syncedLyrics) : []
+  const plain = record.plainLyrics ? record.plainLyrics.split('\n').filter(Boolean) : []
   if (synced.length === 0 && plain.length === 0) return null
   return { synced, plain }
+}
+
+// Among search results, prefer ones whose length matches the track, then synced lyrics.
+export function pickLrcLibResult(results: LrcLibRecord[], durationMs?: number): LrcLibRecord | null {
+  const withLyrics = results.filter((r) => r.syncedLyrics || r.plainLyrics)
+  const matching = durationMs
+    ? withLyrics.filter((r) => r.duration == null || Math.abs(r.duration - durationMs / 1000) <= 3)
+    : withLyrics
+  return matching.find((r) => r.syncedLyrics) ?? matching[0] ?? null
+}
+
+export async function getLyrics(
+  title: string,
+  artist: string,
+  album: string,
+  durationMs?: number
+): Promise<LyricsData | null> {
+  const base = process.env.LRCLIB_API_URL ?? 'https://lrclib.net/api/'
+
+  const exact = new URL('get', base)
+  exact.searchParams.set('track_name', title)
+  exact.searchParams.set('artist_name', artist)
+  exact.searchParams.set('album_name', album)
+  const res = await fetch(exact.toString())
+  if (res.ok) {
+    const lyrics = toLyricsData(await res.json())
+    if (lyrics) return lyrics
+  }
+
+  // Spotify joins every artist ("A, B, C") while LRCLIB lists the main one, so the
+  // exact lookup misses collaborations: search by title and first artist instead.
+  const search = new URL('search', base)
+  search.searchParams.set('track_name', title)
+  search.searchParams.set('artist_name', artist.split(', ')[0])
+  const searchRes = await fetch(search.toString())
+  if (!searchRes.ok) return null
+  const best = pickLrcLibResult(await searchRes.json(), durationMs)
+  return best ? toLyricsData(best) : null
 }
 
 export async function controlPlayback(

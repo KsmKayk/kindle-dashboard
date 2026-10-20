@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { parseLrcLibResponse, formatFallback, spotifyRedirectUri, controlPlayback } from '@/lib/spotify'
+import { parseLrcLibResponse, formatFallback, spotifyRedirectUri, controlPlayback, getLyrics, pickLrcLibResult } from '@/lib/spotify'
 
 describe('Spotify utility functions', () => {
   it('parseLrcLibResponse parses synced lyrics', () => {
@@ -53,6 +53,42 @@ describe('Spotify utility functions', () => {
     it('explains a 404 as no active device', async () => {
       jest.spyOn(global, 'fetch').mockResolvedValue(new Response(null, { status: 404 }))
       await expect(controlPlayback('play', 'token')).rejects.toThrow('No active Spotify device')
+    })
+  })
+
+  describe('lyrics lookup', () => {
+    afterEach(() => jest.restoreAllMocks())
+
+    it('pickLrcLibResult prefers a duration match with synced lyrics', () => {
+      const results = [
+        { duration: 300, syncedLyrics: '[00:01.00] wrong version' },
+        { duration: 184, plainLyrics: 'plain only' },
+        { duration: 185, syncedLyrics: '[00:01.00] right' },
+      ]
+      expect(pickLrcLibResult(results, 184004)).toBe(results[2])
+    })
+
+    it('pickLrcLibResult skips results without lyrics', () => {
+      expect(pickLrcLibResult([{ duration: 184 }], 184000)).toBeNull()
+    })
+
+    it('falls back to a search by the first artist when the exact lookup misses', async () => {
+      const fetchMock = jest.spyOn(global, 'fetch')
+        .mockResolvedValueOnce(new Response('{}', { status: 404 }))
+        .mockResolvedValueOnce(Response.json([{ duration: 184, plainLyrics: 'Line one\nLine two' }]))
+      const lyrics = await getLyrics('Diamante', 'TheFox, Dri, Fenyx', 'Diamante', 184004)
+      expect(lyrics).toEqual({ synced: [], plain: ['Line one', 'Line two'] })
+      const searchUrl = new URL(String(fetchMock.mock.calls[1][0]))
+      expect(searchUrl.pathname).toBe('/api/search')
+      expect(searchUrl.searchParams.get('artist_name')).toBe('TheFox')
+    })
+
+    it('uses the exact lookup when it has lyrics', async () => {
+      const fetchMock = jest.spyOn(global, 'fetch')
+        .mockResolvedValueOnce(Response.json({ syncedLyrics: '[00:05.00] Hello' }))
+      const lyrics = await getLyrics('Song', 'Artist', 'Album')
+      expect(lyrics?.synced).toEqual([{ time: 5, text: 'Hello' }])
+      expect(fetchMock).toHaveBeenCalledTimes(1)
     })
   })
 })
