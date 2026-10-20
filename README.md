@@ -19,9 +19,10 @@
 
 A self-hosted web dashboard that turns a **Kindle** into an always-on e-ink status display. The Kindle sits on a desk showing Steam activity, League of Legends stats and what's playing on Spotify — refreshing automatically, no interaction needed.
 
-The main app is a full React/Next.js dashboard for modern browsers. The Kindle can show it in two ways:
+The main app is a full React/Next.js dashboard for modern browsers. The Kindle can show it in three ways:
 
 - **[TRMNL + LaraPaper](#trmnl--larapaper-recommended)** *(recommended)* — a self-hosted [LaraPaper](https://github.com/usetrmnl/larapaper) server renders the dashboard into an e-ink image and the Kindle just displays it.
+- **[KOReader plugin](#koreader-plugin)** — a native app on the Kindle with a dashboard tab and a Spotify tab (synced lyrics, playback buttons), redrawing only what changes.
 - **[Fullscreen browser](#the-rendering-challenge--how-to-make-it-work-on-a-kindle)** — a dedicated `/kindle` route serves a zero-JavaScript, pre-rendered HTML page that even the oldest WebKit browser can handle.
 
 <div align="center">
@@ -125,10 +126,26 @@ Kindle (TRMNL client) ──every N s──► LaraPaper ──polls──► th
 | Approach | Setup | Needs | Interactivity |
 |---|---|---|---|
 | **TRMNL + LaraPaper** | Install LaraPaper + a TRMNL client on the Kindle | A server for LaraPaper | None — static image |
+| **KOReader plugin** | Jailbreak + KUAL + KOReader + plugin folder | Kindle can reach the app | Tabs, Spotify buttons, synced lyrics with partial refresh |
 | **Fullscreen browser** (`/kindle`) | Jailbreak + KUAL + fullscreen browser | Kindle can reach the app | Links and Spotify buttons; meta refresh |
 
 **Full setup** (installing LaraPaper, the Kindle device model, the plugin, refresh intervals and troubleshooting):
 [`trmnl-plugin/README.md`](trmnl-plugin/README.md).
+
+---
+
+## KOReader plugin
+
+[`koreader-plugin/kindledash.koplugin`](koreader-plugin/) is a [KOReader](https://github.com/koreader/koreader)
+plugin that opens full screen with two tabs:
+
+- **Dashboard** — Steam + League, rendered by this app as a grayscale PNG sized to the screen
+  (`/api/kindle/dashboard.png`, built with `next/og`) and refreshed every 60 s.
+- **Spotify** — cover, progress, **Prev / Play-Pause / Next** buttons and synced lyrics that follow
+  the song between polls, redrawing only the lyrics box on each line change.
+
+Install: copy the `kindledash.koplugin` folder into `koreader/plugins/` on the Kindle, then open
+**Tools → Kindle Dashboard**. Full instructions: [`koreader-plugin/README.md`](koreader-plugin/README.md).
 
 ---
 
@@ -145,13 +162,14 @@ Kindle (TRMNL client) ──every N s──► LaraPaper ──polls──► th
 
 ## Spotify
 
-Spotify appears in four places:
+Spotify appears in five places:
 
 | Where | What it shows |
 |---|---|
 | **TRMNL screen** (`/api/trmnl`) | Album cover, track and artist. *Now playing* while a track plays; when playback stops it keeps the *Last played* track (saved on disk, so it survives restarts). |
 | **`/kindle`** | *♪ track · artist* in the top bar while a track plays. |
 | **`/kindle/spotify`** | Zero-JavaScript player for the Kindle browser: cover, current lyric lines and previous / play-pause / next buttons, reloading every 5 s (see [Pages](#pages)). |
+| **KOReader plugin** | Spotify tab: cover, synced lyrics and playback buttons (see [KOReader plugin](#koreader-plugin)). |
 | **`/spotify`** | Full player in a modern browser: live progress, lyrics ([LRCLIB](https://lrclib.net), synced or plain) and previous / play-pause / next controls. Shows the last played track when nothing is playing. |
 
 The TRMNL screen is a static image, so it cannot have playback buttons, and it changes only when the Kindle refreshes
@@ -199,6 +217,7 @@ npm run dev
 | `http://localhost:3000/kindle` | Kindle-optimized static HTML view |
 | `http://localhost:3000/spotify` | Full Spotify player |
 | `http://localhost:3000/api/trmnl` | JSON payload for the TRMNL / LaraPaper plugin |
+| `http://localhost:3000/api/kindle/dashboard.png` | Dashboard image for the KOReader plugin (`?w=&h=` to size it) |
 | `http://127.0.0.1:3000/api/spotify/auth` | Start Spotify OAuth flow (use `127.0.0.1`, see [Spotify keys](#spotify-keys)) |
 
 ## Running with Docker

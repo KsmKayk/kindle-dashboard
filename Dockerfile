@@ -30,6 +30,8 @@ RUN mkdir -p /app/.cache && chown nextjs:nodejs /app/.cache
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static   ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public         ./public
+# Fonts for the dashboard PNG (src/lib/dashboard-image.tsx reads them at runtime)
+COPY --from=builder --chown=nextjs:nodejs /app/assets         ./assets
 
 # Sharp native module — standalone doesn't bundle native addons automatically.
 # Sharp 0.33+ stores the actual native binary in @img/sharp-linux-musl-x64
