@@ -2,7 +2,8 @@ services:
   dashboard:
     build: .
     ports:
-      - "3000:3000"
+      # HOST_PORT lets the server pick a free port (set in its .env); 3000 locally.
+      - "127.0.0.1:${HOST_PORT:-3000}:3000"
     env_file:
       - .env
     restart: unless-stopped
