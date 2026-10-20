@@ -1,4 +1,4 @@
-import type { SteamData, SteamNowPlaying, SteamTopGame } from '@/types'
+import type { SteamData, SteamNowPlaying, SteamLastPlayed, SteamTopGame } from '@/types'
 
 const API_BASE = 'https://api.steampowered.com'
 
@@ -16,6 +16,30 @@ export function getSteamHeaderImageUrl(appId: number | string): string {
 
 export function getSteamLibraryImageUrl(appId: number | string): string {
   return `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`
+}
+
+export function daysAgo(unixSeconds: number, now = Date.now()): string {
+  const days = Math.floor((now - unixSeconds * 1000) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
+  return `${days} days ago`
+}
+
+export function pickLastPlayed(
+  games: Array<{ appid: number; name: string; rtime_last_played?: number }>
+): SteamLastPlayed | null {
+  let last: (typeof games)[number] | null = null
+  for (const g of games) {
+    if (g.rtime_last_played && (!last || g.rtime_last_played > last.rtime_last_played!)) last = g
+  }
+  if (!last) return null
+  return {
+    name: last.name,
+    appid: last.appid,
+    headerImg: getSteamHeaderImageUrl(last.appid),
+    fallback: buildGameFallback(last.name),
+    playedAt: last.rtime_last_played!,
+  }
 }
 
 async function steamFetch<T>(endpoint: string, params: Record<string, string>): Promise<T> {
@@ -36,7 +60,7 @@ export async function buildSteamData(): Promise<SteamData> {
       'ISteamUser/GetPlayerSummaries/v0002/', { steamids: steamId }
     ),
     // GetOwnedGames uses 'steamid' (singular)
-    steamFetch<{ response: { games?: Array<{ appid: number; name: string; playtime_forever: number }>; game_count?: number } }>(
+    steamFetch<{ response: { games?: Array<{ appid: number; name: string; playtime_forever: number; rtime_last_played?: number }>; game_count?: number } }>(
       'IPlayerService/GetOwnedGames/v0001/',
       { steamid: steamId, include_appinfo: '1', include_played_free_games: '1' }
     ),
@@ -70,6 +94,7 @@ export async function buildSteamData(): Promise<SteamData> {
 
   return {
     nowPlaying,
+    lastPlayed: pickLastPlayed(allGames),
     topGames,
     totalGames,
     isOnline: player.personastate !== 0,

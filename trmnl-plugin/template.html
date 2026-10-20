@@ -49,7 +49,7 @@
       display: flex; align-items: center; gap: 10px; overflow: hidden;
     }
     .now-playing__img-wrap {
-      width: 52px; height: 52px; border-radius: 5px;
+      width: 92px; height: 43px; border-radius: 5px; /* Steam header.jpg ratio */
       overflow: hidden; border: 1px solid var(--ink); flex-shrink: 0;
     }
     .now-playing__img { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -204,10 +204,10 @@
     .track {
       background: var(--paper-light); border: 1px solid var(--ink);
       border-radius: 8px; display: flex; align-items: center;
-      padding: 10px; gap: 14px; overflow: hidden;
+      padding: 8px 10px; gap: 14px; overflow: hidden;
     }
     .track__cover-wrap {
-      width: 120px; height: 120px; border-radius: 6px; flex-shrink: 0;
+      width: 80px; height: 80px; border-radius: 6px; flex-shrink: 0;
       overflow: hidden; border: 1px solid var(--ink); background: var(--paper-dark);
     }
     .track__cover { display: block; width: 100%; height: 100%; object-fit: cover; }
@@ -255,19 +255,24 @@
 
       {% if steam_username %}
 
-      {% if steam_now_playing %}
+      {% if steam_game %}
       <div class="now-playing">
-        {% if steam_now_playing_img %}
+        {% if steam_game_img %}
         <div class="now-playing__img-wrap">
-          <img class="now-playing__img" src="{{ steam_now_playing_img }}" alt="">
+          <img class="now-playing__img" src="{{ steam_game_img }}" alt="">
         </div>
         {% endif %}
         <div class="now-playing__info">
           <div class="now-playing__top">
+            {% if steam_playing %}
             <span class="now-playing__badge">NOW PLAYING</span>
             <span class="now-playing__live">&#8226; LIVE</span>
+            {% else %}
+            <span class="now-playing__badge">LAST PLAYED</span>
+            <span class="now-playing__badge">{{ steam_last_played }}</span>
+            {% endif %}
           </div>
-          <div class="now-playing__name">{{ steam_now_playing }}</div>
+          <div class="now-playing__name">{{ steam_game }}</div>
         </div>
       </div>
       {% endif %}

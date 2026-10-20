@@ -12,6 +12,7 @@ const steam: SteamData = {
   ],
   totalGames: 200,
   isOnline: true,
+  lastPlayed: null,
   personaname: 'AutumnFaun',
 }
 

@@ -14,6 +14,7 @@ jest.mock('@/lib/server-cache', () => ({
     ],
     totalGames: 200,
     isOnline: true,
+    lastPlayed: { name: 'Sekiro', appid: 814380, headerImg: 'http://cdn/sekiro-header.jpg', fallback: 'SEK', playedAt: 1700000000 },
     personaname: 'AutumnFaun',
   }),
   getCachedLeagueData: jest.fn().mockResolvedValue({
@@ -107,5 +108,25 @@ describe('GET /api/trmnl', () => {
     const body = await res.json()
     expect(body.spotify_playing).toBe(false)
     expect(body.spotify_title).toBeNull()
+  })
+
+  it('shows the game being played as the steam game', async () => {
+    const res = await GET()
+    const body = await res.json()
+    expect(body.steam_playing).toBe(true)
+    expect(body.steam_game).toBe('Elden Ring')
+    expect(body.steam_game_img).toBe('http://cdn/header.jpg')
+  })
+
+  it('falls back to the last played game when not in game', async () => {
+    const { getCachedSteamData } = jest.requireMock('@/lib/server-cache')
+    const steam = await getCachedSteamData()
+    getCachedSteamData.mockResolvedValueOnce({ ...steam, nowPlaying: null })
+    const res = await GET()
+    const body = await res.json()
+    expect(body.steam_playing).toBe(false)
+    expect(body.steam_game).toBe('Sekiro')
+    expect(body.steam_game_img).toBe('http://cdn/sekiro-header.jpg')
+    expect(body.steam_last_played).toMatch(/days ago|yesterday|today/)
   })
 })

@@ -25,6 +25,7 @@ const fakeSteam: SteamData = {
   topGames: [],
   totalGames: 42,
   isOnline: true,
+  lastPlayed: null,
   personaname: 'TestUser',
 }
 

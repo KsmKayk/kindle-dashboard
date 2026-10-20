@@ -7,6 +7,7 @@ describe('type imports', () => {
       topGames: [],
       totalGames: 0,
       isOnline: false,
+      lastPlayed: null,
       personaname: 'test',
     }
     expect(data.totalGames).toBe(0)

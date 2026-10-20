@@ -20,6 +20,14 @@ export interface SteamNowPlaying {
   fallback: string
 }
 
+export interface SteamLastPlayed {
+  name: string
+  appid: number
+  headerImg: string
+  fallback: string
+  playedAt: number // unix seconds, from GetOwnedGames rtime_last_played
+}
+
 export interface SteamTopGame {
   name: string
   appid: number
@@ -30,6 +38,7 @@ export interface SteamTopGame {
 
 export interface SteamData {
   nowPlaying: SteamNowPlaying | null
+  lastPlayed: SteamLastPlayed | null
   topGames: SteamTopGame[]
   totalGames: number
   isOnline: boolean

@@ -19,6 +19,7 @@ const fakeSteam = {
   topGames: [],
   totalGames: 10,
   isOnline: false,
+  lastPlayed: null,
   personaname: 'Tester',
 }
 

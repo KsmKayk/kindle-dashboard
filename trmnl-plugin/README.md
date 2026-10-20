@@ -143,7 +143,7 @@ elements, so do not add `<html>`, `<head>`, `plugins.css` or `.screen` to it: re
 
 ## Sections
 
-- **Steam** — online status, now playing, top 3 games by hours, total games.
+- **Steam** — online status, the game being played (*Now playing*) or, when not in game, the *Last played* one with how long ago (from Steam's `rtime_last_played`), top 3 games by hours, total games.
 - **League of Legends** — profile and level, last 4 matches with KDA and W/L, top 3 champions with winrate.
 - **Spotify** — album cover, track and artist. Shows *Now playing* while a track plays and keeps
   the *Last played* track when playback stops. Requires `SPOTIFY_REFRESH_TOKEN`
@@ -155,7 +155,8 @@ of going blank. If an API never returned data, its section shows a short "unavai
 
 ## Payload schema
 
-`GET /api/trmnl` returns this shape (all fields are always present; `null` / `[]` means no data):
+`GET /api/trmnl` returns this shape (all fields are always present; `null` / `[]` means no data).
+`steam_now_playing*` are only set while in game; `steam_game*` hold the current game or, when not playing, the last played one:
 
 ```json
 {
@@ -163,6 +164,10 @@ of going blank. If an API never returned data, its section shows a short "unavai
   "steam_username": "AutumnFaun",
   "steam_now_playing": "Elden Ring",
   "steam_now_playing_img": "https://cdn.../header.jpg",
+  "steam_playing": true,
+  "steam_game": "Elden Ring",
+  "steam_game_img": "https://cdn.../header.jpg",
+  "steam_last_played": "3 days ago",
   "steam_games": [{ "name": "Elden Ring", "hours": 120, "img": "https://..." }],
   "steam_total_games": 200,
   "league_name": "AutumnFaun",

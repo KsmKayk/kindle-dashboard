@@ -1,4 +1,5 @@
 import { getCachedSteamData, getCachedLeagueData, getSpotifyNowOrLast } from '@/lib/server-cache'
+import { daysAgo } from '@/lib/steam'
 import type { SteamData, LeagueData, SpotifyPlayback } from '@/types'
 
 export const runtime = 'nodejs'
@@ -11,6 +12,10 @@ function steamPayload(steam: SteamData | null) {
       steam_username: null,
       steam_now_playing: null,
       steam_now_playing_img: null,
+      steam_playing: false,
+      steam_game: null,
+      steam_game_img: null,
+      steam_last_played: null,
       steam_games: [] as { name: string; hours: number; img: string }[],
       steam_total_games: null,
     }
@@ -20,6 +25,11 @@ function steamPayload(steam: SteamData | null) {
     steam_username: steam.personaname,
     steam_now_playing: steam.nowPlaying?.name ?? null,
     steam_now_playing_img: steam.nowPlaying?.headerImg ?? null,
+    // The game being played, or the last one played when not in game
+    steam_playing: steam.nowPlaying !== null,
+    steam_game: steam.nowPlaying?.name ?? steam.lastPlayed?.name ?? null,
+    steam_game_img: steam.nowPlaying?.headerImg ?? steam.lastPlayed?.headerImg ?? null,
+    steam_last_played: steam.lastPlayed ? daysAgo(steam.lastPlayed.playedAt) : null,
     steam_games: steam.topGames.map(g => ({ name: g.name, hours: g.hours, img: g.coverImg })),
     steam_total_games: steam.totalGames,
   }
