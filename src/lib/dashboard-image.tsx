@@ -293,5 +293,5 @@ export async function renderDashboardPng(
     { ...size, fonts: fontList }
   )
   const png = Buffer.from(await response.arrayBuffer())
-  return sharp(png).grayscale().png({ compressionLevel: 9 }).toBuffer()
+  return sharp(png).removeAlpha().toColourspace('b-w').png({ compressionLevel: 9 }).toBuffer()
 }
