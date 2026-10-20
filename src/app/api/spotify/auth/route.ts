@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
+import { spotifyRedirectUri } from '@/lib/spotify'
 
 export const runtime = 'nodejs'
 
 export async function GET(request: Request) {
   const clientId = process.env.SPOTIFY_API_CLIENT_ID!
-  const redirectUri = new URL('/api/spotify/callback', request.url).toString()
+  const redirectUri = spotifyRedirectUri(request)
 
   const scopes = [
     'user-read-currently-playing',

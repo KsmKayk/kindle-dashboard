@@ -19,6 +19,15 @@ export function parseLrcLibResponse(syncedLyrics: string): LyricLine[] {
   return lines
 }
 
+// Behind a reverse proxy request.url is the internal address (http://0.0.0.0:3000),
+// so build the public callback URL from the Host / X-Forwarded-Proto headers.
+export function spotifyRedirectUri(request: Request): string {
+  const url = new URL(request.url)
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? url.host
+  const proto = request.headers.get('x-forwarded-proto') ?? url.protocol.replace(':', '')
+  return `${proto}://${host}/api/spotify/callback`
+}
+
 export function formatFallback(artistName: string): string {
   return artistName.split(/[\s-]+/).slice(0, 2).join('\n').toUpperCase()
 }

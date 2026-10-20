@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { spotifyRedirectUri } from '@/lib/spotify'
 
 export const runtime = 'nodejs'
 
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   const clientId = process.env.SPOTIFY_API_CLIENT_ID!
   const clientSecret = process.env.SPOTIFY_API_CLIENT_SECRET!
-  const redirectUri = new URL('/api/spotify/callback', request.url).toString()
+  const redirectUri = spotifyRedirectUri(request)
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
 
   const res = await fetch('https://accounts.spotify.com/api/token', {

@@ -1,4 +1,8 @@
-import { parseLrcLibResponse, formatFallback } from '@/lib/spotify'
+/**
+ * @jest-environment node
+ */
+
+import { parseLrcLibResponse, formatFallback, spotifyRedirectUri } from '@/lib/spotify'
 
 describe('Spotify utility functions', () => {
   it('parseLrcLibResponse parses synced lyrics', () => {
@@ -19,5 +23,17 @@ describe('Spotify utility functions', () => {
   it('formatFallback truncates artist name', () => {
     expect(formatFallback('The Beatles')).toBe('THE\nBEATLES')
     expect(formatFallback('Taylor Swift - Red')).toBe('TAYLOR\nSWIFT')
+  })
+
+  it('spotifyRedirectUri uses the public host behind a proxy', () => {
+    const req = new Request('http://0.0.0.0:3000/api/spotify/auth', {
+      headers: { host: 'kindle.example.com', 'x-forwarded-proto': 'https' },
+    })
+    expect(spotifyRedirectUri(req)).toBe('https://kindle.example.com/api/spotify/callback')
+  })
+
+  it('spotifyRedirectUri falls back to the request URL locally', () => {
+    const req = new Request('http://localhost:3000/api/spotify/auth')
+    expect(spotifyRedirectUri(req)).toBe('http://localhost:3000/api/spotify/callback')
   })
 })
