@@ -106,9 +106,12 @@ export async function buildLeagueData(): Promise<LeagueData> {
     `/lol/match/v5/matches/by-puuid/${summoner.puuid}/ids?count=20`
   )
 
-  const recentMatches = await Promise.all(
-    matchIds.slice(0, 20).map((id) => getMatchDetails(id, summoner.puuid, ddVersion))
-  )
+  // One at a time: 20 parallel requests plus the account/summoner/ids calls burst
+  // past Riot's 20 requests/second limit and fail with 429.
+  const recentMatches: MatchResult[] = []
+  for (const id of matchIds.slice(0, 20)) {
+    recentMatches.push(await getMatchDetails(id, summoner.puuid, ddVersion))
+  }
 
   const displayMatches = recentMatches.slice(0, 4)
 
