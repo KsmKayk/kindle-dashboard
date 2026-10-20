@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { parseLrcLibResponse, formatFallback, spotifyRedirectUri } from '@/lib/spotify'
+import { parseLrcLibResponse, formatFallback, spotifyRedirectUri, controlPlayback } from '@/lib/spotify'
 
 describe('Spotify utility functions', () => {
   it('parseLrcLibResponse parses synced lyrics', () => {
@@ -35,5 +35,24 @@ describe('Spotify utility functions', () => {
   it('spotifyRedirectUri falls back to the request URL locally', () => {
     const req = new Request('http://localhost:3000/api/spotify/auth')
     expect(spotifyRedirectUri(req)).toBe('http://localhost:3000/api/spotify/callback')
+  })
+
+  describe('controlPlayback', () => {
+    afterEach(() => jest.restoreAllMocks())
+
+    it('resolves when Spotify accepts the command', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValue(new Response(null, { status: 204 }))
+      await expect(controlPlayback('next', 'token')).resolves.toBeUndefined()
+    })
+
+    it('explains a 403 as Premium required', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValue(new Response(null, { status: 403 }))
+      await expect(controlPlayback('pause', 'token')).rejects.toThrow('Premium')
+    })
+
+    it('explains a 404 as no active device', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValue(new Response(null, { status: 404 }))
+      await expect(controlPlayback('play', 'token')).rejects.toThrow('No active Spotify device')
+    })
   })
 })

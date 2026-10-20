@@ -9,7 +9,7 @@ const INK = '#1a1612'
 const PAPER = '#e8e3d8'
 
 export default function SpotifyPage() {
-  const { playback, lyrics, liveProgressMs, sendControl } = useSpotifyData()
+  const { playback, lyrics, liveProgressMs, controlError, sendControl } = useSpotifyData()
 
   return (
     <div
@@ -31,6 +31,7 @@ export default function SpotifyPage() {
         playback={playback}
         lyrics={lyrics}
         liveProgressMs={liveProgressMs}
+        controlError={controlError}
         onAction={sendControl}
       />
       <NavButtons activePage="spotify" />

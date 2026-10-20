@@ -1,16 +1,11 @@
 import { NextResponse } from 'next/server'
-import { getAccessToken, getCurrentlyPlaying } from '@/lib/spotify'
+import { getSpotifyNowOrLast } from '@/lib/server-cache'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+// The current track, or the last played one (isPlaying: false) when nothing is playing
 export async function GET() {
-  try {
-    const token = await getAccessToken()
-    const data = await getCurrentlyPlaying(token)
-    return NextResponse.json(data)
-  } catch (err) {
-    console.error('[api/spotify]', err)
-    return NextResponse.json({ isPlaying: false, track: null })
-  }
+  const playback = await getSpotifyNowOrLast()
+  return NextResponse.json(playback ?? { isPlaying: false, track: null })
 }

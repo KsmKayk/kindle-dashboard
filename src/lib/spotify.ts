@@ -115,8 +115,19 @@ export async function controlPlayback(
     previous: { method: 'POST', path: '/me/player/previous' },
   }
   const { method, path } = endpoints[action]
-  await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: { Authorization: `Bearer ${accessToken}` },
   })
+  if (!res.ok) throw new SpotifyControlError(res.status)
+}
+
+export class SpotifyControlError extends Error {
+  constructor(readonly status: number) {
+    super(
+      status === 403 ? 'Spotify Premium is required to control playback'
+        : status === 404 ? 'No active Spotify device - start playing on a device first'
+          : `Spotify playback control failed (${status})`
+    )
+  }
 }

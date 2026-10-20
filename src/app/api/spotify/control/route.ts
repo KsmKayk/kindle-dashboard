@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAccessToken, controlPlayback } from '@/lib/spotify'
+import { getAccessToken, controlPlayback, SpotifyControlError } from '@/lib/spotify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,6 +18,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[api/spotify/control]', err)
-    return NextResponse.json({ error: 'Playback control failed' }, { status: 502 })
+    const error = err instanceof SpotifyControlError ? err.message : 'Playback control failed'
+    return NextResponse.json({ error }, { status: 502 })
   }
 }

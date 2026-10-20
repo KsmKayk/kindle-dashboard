@@ -120,7 +120,7 @@ Kindle (TRMNL client) ──every N s──► LaraPaper ──polls──► th
 
 | Section | Details |
 |---|---|
-| 🎮 **Steam** | Online status · Now Playing card with game art · Top 3 games with hours played · Total library count |
+| 🎮 **Steam** | Online status · Now Playing card with game art (*Last played* on the TRMNL screen when not in game) · Top 3 games with hours played · Total library count |
 | 🏆 **League of Legends** | Summoner profile · Last 4 matches with queue type, KDA and W/L badge · Top 3 champions with winrate bar |
 | 🎵 **Spotify** | Current (or last played) track with album art · full player with lyrics and controls at `/spotify` |
 | 💾 **Saved data** | Last successful Steam/League/Spotify data is kept on disk; a failed API call never blanks the screen |
@@ -135,10 +135,12 @@ Spotify appears in three places:
 |---|---|
 | **TRMNL screen** (`/api/trmnl`) | Album cover, track and artist. *Now playing* while a track plays; when playback stops it keeps the *Last played* track (saved on disk, so it survives restarts). |
 | **`/kindle`** | A static now-playing card, only when a track is playing at page-load time; updates with the page's meta refresh. |
-| **`/spotify`** | Full player in a modern browser: live progress, synced lyrics ([LRCLIB](https://lrclib.net)) and playback controls. |
+| **`/spotify`** | Full player in a modern browser: live progress, lyrics ([LRCLIB](https://lrclib.net), synced or plain) and previous / play-pause / next controls. Shows the last played track when nothing is playing. |
 
 The TRMNL screen is a static image, so it cannot have playback buttons, and it changes only when the Kindle refreshes
 (a 60 s refresh interval follows track changes within about a minute). For controls, use `/spotify`.
+
+Playback controls need **Spotify Premium** and an active device (a Spotify app that is playing or was recently playing); otherwise the player shows Spotify's error under the controls.
 
 Connecting your account needs a one-time OAuth authorization that produces `SPOTIFY_REFRESH_TOKEN` —
 see [Spotify keys](#spotify-keys) below.
@@ -228,7 +230,6 @@ One-time server setup:
 | `LRCLIB_API_URL` | LRCLIB lyrics API base URL | `https://lrclib.net/api/` |
 | `STEAM_UPDATE_RATE` | Steam cache TTL and Kindle refresh interval (seconds) | `60` |
 | `LEAGUE_UPDATE_RATE` | League cache TTL (seconds) | `600` |
-| `SPOTIFY_UPDATE_RATE` | Spotify polling interval for main dashboard (seconds) | `5` |
 | `HOST_PORT` | Docker only: host port published by `compose.yaml` | `3000` |
 | `HOST_BIND` | Docker only: host address the port is published on (`0.0.0.0` for LAN access) | `127.0.0.1` |
 | `CACHE_DIR` | Where the last good API data is saved | `.cache` |

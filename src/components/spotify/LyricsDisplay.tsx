@@ -7,6 +7,7 @@ const LYRICS_LOOKAHEAD_SECONDS = 12
 
 interface LyricsDisplayProps {
   lyrics: LyricLine[]
+  plainLyrics?: string[] // shown when there are no synced lyrics
   currentTimeSeconds: number
 }
 
@@ -34,7 +35,7 @@ function opacityForOffset(offset: number, isPast: boolean): number {
   return 0.45
 }
 
-export function LyricsDisplay({ lyrics, currentTimeSeconds }: LyricsDisplayProps) {
+export function LyricsDisplay({ lyrics, plainLyrics = [], currentTimeSeconds }: LyricsDisplayProps) {
   const containerStyle: React.CSSProperties = {
     flex: 1,
     border: `1px dashed ${INK}`,
@@ -48,6 +49,18 @@ export function LyricsDisplay({ lyrics, currentTimeSeconds }: LyricsDisplayProps
     background: 'transparent',
     marginBottom: 12,
     overflow: 'hidden',
+  }
+
+  if (lyrics.length === 0 && plainLyrics.length > 0) {
+    return (
+      <div style={containerStyle}>
+        {plainLyrics.map((line, i) => (
+          <div key={i} style={{ textAlign: 'center', fontFamily: 'Georgia, "Times New Roman", serif', fontSize: 13, color: INK, lineHeight: 1.35 }}>
+            {line}
+          </div>
+        ))}
+      </div>
+    )
   }
 
   if (lyrics.length === 0) {
