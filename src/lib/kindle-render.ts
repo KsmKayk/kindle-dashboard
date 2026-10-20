@@ -229,6 +229,14 @@ function nowPlayingLabel(data: SpotifyPlayback | null): string | null {
 
 export type KindleView = 'dashboard' | 'spotify'
 
+// Adds ?token= to a /kindle link when the page was opened with one, because the
+// Kindle browser may not keep the cookie the token sets (see src/proxy.ts).
+export function withToken(path: string, token: string | null): string {
+  if (!token) return path
+  const separator = path.includes('?') ? '&amp;' : '?'
+  return `${path}${separator}token=${encodeURIComponent(token)}`
+}
+
 function navTab(label: string, href: string, active: boolean): string {
   const colors = active ? `background:${INK};color:${PAPER};` : `background:transparent;color:${INK};`
   return `<a href="${href}" style="${colors}display:inline-block;border:1px solid ${INK};border-radius:9999px;padding:6px 16px;margin-left:6px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:2px;text-decoration:none;">${label}</a>`
@@ -236,13 +244,14 @@ function navTab(label: string, href: string, active: boolean): string {
 
 // Top bar shared by the /kindle pages: plain links, so it works without JavaScript.
 // The tiny script only reports whether the browser runs JS (shows "JS" when it does).
-export function renderNav(active: KindleView, nowPlaying: string | null = null): string {
+export function renderNav(active: KindleView, nowPlaying: string | null = null, token: string | null = null): string {
+  const spotifyHref = withToken('/kindle/spotify', token)
   const left = nowPlaying
-    ? `<a href="/kindle/spotify" style="color:${INK};text-decoration:none;">&#9835; ${escapeHtml(nowPlaying)}</a>`
+    ? `<a href="${spotifyHref}" style="color:${INK};text-decoration:none;">&#9835; ${escapeHtml(nowPlaying)}</a>`
     : 'AutumnFaun'
   return `<div style="display:flex;align-items:center;margin-bottom:12px;">
   <div style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:Georgia,serif;font-size:13px;font-style:italic;letter-spacing:0.5px;">${left} <span id="js-flag" style="font-family:'Helvetica Neue',Arial,sans-serif;font-style:normal;font-size:8px;letter-spacing:1px;color:${INK_MUTED};"></span></div>
-  ${navTab('DASHBOARD', '/kindle', active === 'dashboard')}${navTab('SPOTIFY', '/kindle/spotify', active === 'spotify')}
+  ${navTab('DASHBOARD', withToken('/kindle', token), active === 'dashboard')}${navTab('SPOTIFY', spotifyHref, active === 'spotify')}
 </div>
 <script>document.getElementById('js-flag').innerHTML = 'JS';</script>`
 }
@@ -269,7 +278,8 @@ export function renderKindlePage(
   steam: SteamData | null,
   league: LeagueData | null,
   spotify: SpotifyPlayback | null,
-  _baseUrl: string
+  _baseUrl: string,
+  token: string | null = null
 ): string {
   const steamRate = parseInt(process.env.STEAM_UPDATE_RATE ?? '60', 10)
   const leagueRate = parseInt(process.env.LEAGUE_UPDATE_RATE ?? '600', 10)
@@ -278,7 +288,7 @@ export function renderKindlePage(
   return renderKindleDocument(
     'AutumnFaun Dashboard',
     refreshSeconds,
-    `${renderNav('dashboard', nowPlayingLabel(spotify))}
+    `${renderNav('dashboard', nowPlayingLabel(spotify), token)}
 ${renderSteam(steam)}
 ${renderLeague(league)}`
   )

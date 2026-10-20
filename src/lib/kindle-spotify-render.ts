@@ -1,7 +1,7 @@
 import type { SpotifyPlayback, SpotifyTrackInfo, LyricsData, LyricLine } from '@/types'
 import {
   INK, INK_MUTED, PAPER, PAPER_LIGHT,
-  escapeHtml, proxyImg, formatTime, sectionHeader, renderWinrateBar, renderNav, renderKindleDocument,
+  escapeHtml, proxyImg, formatTime, sectionHeader, renderWinrateBar, renderNav, renderKindleDocument, withToken,
 } from './kindle-render'
 
 export const DEFAULT_REFRESH_SECONDS = 5
@@ -61,20 +61,21 @@ function renderTrack(track: SpotifyTrackInfo, isPlaying: boolean): string {
 
 // Each button is a tiny form: a tap posts the command and the server redirects
 // back to this page, so the controls need no JavaScript.
-function controlButton(action: string, label: string, primary: boolean, refresh: number): string {
+function controlButton(action: string, label: string, primary: boolean, refresh: number, token: string | null): string {
   const colors = primary ? `background:${INK};color:${PAPER};` : `background:${PAPER_LIGHT};color:${INK};`
-  return `<form method="post" action="/kindle/spotify/control" style="margin:0;flex:${primary ? 2 : 1};">
+  // The token goes in the action URL (not a field): src/proxy.ts checks it before the route reads the body
+  return `<form method="post" action="${withToken('/kindle/spotify/control', token)}" style="margin:0;flex:${primary ? 2 : 1};">
   <input type="hidden" name="action" value="${action}">
   <input type="hidden" name="r" value="${refresh}">
   <button type="submit" style="${colors}width:100%;height:56px;border:1px solid ${INK};border-radius:10px;${LABEL_FONT}font-size:14px;font-weight:bold;letter-spacing:2px;">${label}</button>
 </form>`
 }
 
-function renderControls(isPlaying: boolean, refresh: number): string {
+function renderControls(isPlaying: boolean, refresh: number, token: string | null): string {
   return `<div style="display:flex;gap:10px;margin-bottom:12px;">
-  ${controlButton('previous', '&laquo; PREV', false, refresh)}
-  ${isPlaying ? controlButton('pause', 'PAUSE', true, refresh) : controlButton('play', 'PLAY', true, refresh)}
-  ${controlButton('next', 'NEXT &raquo;', false, refresh)}
+  ${controlButton('previous', '&laquo; PREV', false, refresh, token)}
+  ${isPlaying ? controlButton('pause', 'PAUSE', true, refresh, token) : controlButton('play', 'PLAY', true, refresh, token)}
+  ${controlButton('next', 'NEXT &raquo;', false, refresh, token)}
 </div>`
 }
 
@@ -110,7 +111,8 @@ export function renderKindleSpotifyPage(
   playback: SpotifyPlayback | null,
   lyrics: LyricsData | null,
   interval: number,
-  error: string | null = null
+  error: string | null = null,
+  token: string | null = null
 ): string {
   const track = playback?.track ?? null
   const isPlaying = Boolean(playback?.isPlaying && track)
@@ -121,7 +123,7 @@ export function renderKindleSpotifyPage(
 
   const content = track
     ? `${renderTrack(track, isPlaying)}
-${renderControls(isPlaying, interval)}
+${renderControls(isPlaying, interval, token)}
 ${errorLine}
 ${renderLyrics(lyrics, track.progressMs)}`
     : `<p style="font-size:14px;font-style:italic;color:${INK_MUTED};">Nothing played yet. Start a track on Spotify.</p>
@@ -130,7 +132,7 @@ ${errorLine}`
   return renderKindleDocument(
     'AutumnFaun Spotify',
     refreshSecondsFor(playback, interval),
-    `${renderNav('spotify')}
+    `${renderNav('spotify', null, token)}
 ${sectionHeader('SPOTIFY', isPlaying ? 'now playing' : track ? 'paused' : 'idle')}
 ${content}`
   )

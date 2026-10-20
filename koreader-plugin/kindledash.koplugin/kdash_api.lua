@@ -16,8 +16,12 @@ local TOTAL_TIMEOUT = 15
 local Api = {}
 Api.__index = Api
 
-function Api.new(base_url)
-    return setmetatable({ base_url = (base_url or ""):gsub("/+$", "") }, Api)
+-- `token` is the server's KINDLE_API_TOKEN (optional), sent as a Bearer header
+function Api.new(base_url, token)
+    return setmetatable({
+        base_url = (base_url or ""):gsub("/+$", ""),
+        token = token ~= "" and token or nil,
+    }, Api)
 end
 
 function Api.urlEncode(value)
@@ -43,6 +47,7 @@ end
 function Api:request(method, path, body, sink)
     local chunks = {}
     local headers = { ["Accept"] = "application/json, image/png, */*" }
+    if self.token then headers["Authorization"] = "Bearer " .. self.token end
     local source
     if body ~= nil then
         local encoded = JSON.encode(body)

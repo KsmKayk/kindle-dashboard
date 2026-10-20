@@ -17,6 +17,9 @@ export async function POST(request: Request): Promise<Response> {
   const form = await request.formData()
   const action = String(form.get('action') ?? '')
   const params = new URLSearchParams({ r: String(parseRefreshSeconds(String(form.get('r') ?? ''))) })
+  // Keep the access token on the way back (the Kindle browser may not keep cookies)
+  const token = new URL(request.url).searchParams.get('token')
+  if (token) params.set('token', token)
 
   if (!ACTIONS.includes(action as Action)) {
     params.set('error', 'Invalid action')

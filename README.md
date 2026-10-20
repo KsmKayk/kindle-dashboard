@@ -215,6 +215,25 @@ Playback controls need **Spotify Premium** and an active device (a Spotify app t
 Connecting your account needs a one-time OAuth authorization that produces `SPOTIFY_REFRESH_TOKEN` —
 see [Spotify keys](#spotify-keys) below.
 
+### Access token
+
+Anyone who finds the server could read what you are playing and pause or skip it. Set
+`KINDLE_API_TOKEN` (any long random string, e.g. `openssl rand -hex 24`) to require it on the Spotify
+routes: `/api/spotify`, `/api/spotify/lyrics`, `/api/spotify/control`, `/api/spotify/auth`, `/spotify`,
+`/kindle/spotify` and `/kindle/spotify/control`. Everything else (the dashboard, `/kindle`, `/api/trmnl`,
+the images) stays open, and with the variable unset nothing changes.
+
+How each client sends it:
+
+| Client | How |
+|---|---|
+| Browser (`/spotify`, `/api/spotify/auth`) | Open the page once with `?token=YOUR_TOKEN`; it is saved in a cookie for a year |
+| Kindle browser (`/kindle/spotify`) | Put `?token=YOUR_TOKEN` in the URL; the page keeps it in its links and buttons (the Kindle browser may not keep cookies) |
+| KOReader plugin | **Tools → Kindle Dashboard → Access token** (sent as `Authorization: Bearer`) |
+| Scripts | `Authorization: Bearer YOUR_TOKEN` header |
+
+Requests without a valid token get `401`.
+
 ---
 
 ## Tech Stack
@@ -298,6 +317,7 @@ One-time server setup:
 | `SPOTIFY_API_CLIENT_ID` | Spotify app client ID | — |
 | `SPOTIFY_API_CLIENT_SECRET` | Spotify app client secret | — |
 | `SPOTIFY_REFRESH_TOKEN` | OAuth refresh token *(obtained via `/api/spotify/auth`)* | — |
+| `KINDLE_API_TOKEN` | Secret required on the Spotify routes (see [Access token](#access-token)); unset = open | — |
 | `LRCLIB_API_URL` | LRCLIB lyrics API base URL | `https://lrclib.net/api/` |
 | `STEAM_UPDATE_RATE` | Steam cache TTL and Kindle refresh interval (seconds) | `60` |
 | `LEAGUE_UPDATE_RATE` | League cache TTL (seconds) | `600` |
@@ -336,7 +356,7 @@ One-time server setup:
    - **APIs used**: *Web API*.
 2. Open the app's **Settings** and copy **Client ID** → `SPOTIFY_API_CLIENT_ID` and **Client secret** → `SPOTIFY_API_CLIENT_SECRET`.
 3. While the app is in *Development mode*, add your Spotify account's e-mail under **User Management**.
-4. Start the app and open `/api/spotify/auth` **on the same host as the redirect URI** (`http://127.0.0.1:3000/api/spotify/auth` locally, `https://YOUR_DOMAIN/api/spotify/auth` on the server). Log in and accept.
+4. Start the app and open `/api/spotify/auth` (add `?token=YOUR_TOKEN` if `KINDLE_API_TOKEN` is set) **on the same host as the redirect URI** (`http://127.0.0.1:3000/api/spotify/auth` locally, `https://YOUR_DOMAIN/api/spotify/auth` on the server). Log in and accept.
 5. The callback page shows `SPOTIFY_REFRESH_TOKEN=…` — put it in `.env` and restart the app (`docker compose up -d` on the server). The token does not expire; repeat only if you revoke access or change the app.
 
 ### LRCLIB

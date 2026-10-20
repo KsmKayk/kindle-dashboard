@@ -43,6 +43,11 @@ function KindleDash:serverUrl()
     return G_reader_settings:readSetting("kindledash_server_url")
 end
 
+-- The server's KINDLE_API_TOKEN, needed for Spotify when the server sets one
+function KindleDash:accessToken()
+    return G_reader_settings:readSetting("kindledash_access_token")
+end
+
 function KindleDash:dashboardInterval()
     return G_reader_settings:readSetting("kindledash_dashboard_interval") or DEFAULT_DASHBOARD_INTERVAL
 end
@@ -59,7 +64,7 @@ function KindleDash:open(view)
         local cache_dir = DataStorage:getDataDir() .. "/cache/kindledash"
         util.makePath(cache_dir)
         self.hub = Hub:new{
-            api = Api.new(self:serverUrl()),
+            api = Api.new(self:serverUrl(), self:accessToken()),
             settings = { dashboard_interval = self:dashboardInterval() },
             cache_dir = cache_dir,
             initial_view = view or "dashboard",
@@ -136,6 +141,22 @@ function KindleDash:addToMainMenu(menu_items)
                 text_func = function() return T(_("Server: %1"), self:serverUrl() or _("not set")) end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance) self:editServer(touchmenu_instance) end,
+            },
+            {
+                text_func = function()
+                    return T(_("Access token: %1"), self:accessToken() and _("set") or _("not set"))
+                end,
+                keep_menu_open = true,
+                callback = function(touchmenu_instance)
+                    self:editSetting(_("Access token (KINDLE_API_TOKEN)"), self:accessToken() or "", "text", function(value)
+                        value = util.trim(value)
+                        if value == "" then
+                            G_reader_settings:delSetting("kindledash_access_token")
+                        else
+                            G_reader_settings:saveSetting("kindledash_access_token", value)
+                        end
+                    end, touchmenu_instance)
+                end,
             },
             {
                 text_func = function() return T(_("Dashboard refresh: %1 s"), self:dashboardInterval()) end,

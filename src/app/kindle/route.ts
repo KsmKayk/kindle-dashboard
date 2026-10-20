@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request): Promise<Response> {
-  const { origin } = new URL(request.url)
+  const { origin, searchParams } = new URL(request.url)
 
   const [steam, league] = await Promise.all([
     getCachedSteamData().catch((): SteamData | null => null),
@@ -22,7 +22,7 @@ export async function GET(request: Request): Promise<Response> {
     // Spotify not configured or unavailable — omit section
   }
 
-  const html = renderKindlePage(steam, league, spotify, origin)
+  const html = renderKindlePage(steam, league, spotify, origin, searchParams.get('token'))
 
   return new Response(html, {
     status: 200,

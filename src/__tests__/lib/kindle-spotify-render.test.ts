@@ -97,6 +97,13 @@ describe('renderKindleSpotifyPage', () => {
     expect(html).not.toContain('/kindle/spotify/control')
   })
 
+  it('carries the access token in the links and the form actions', () => {
+    const html = renderKindleSpotifyPage(playing, null, 5, null, 'a b')
+    expect(html).toContain('action="/kindle/spotify/control?token=a%20b"')
+    expect(html).toContain('href="/kindle?token=a%20b"')
+    expect(html).toContain('href="/kindle/spotify?token=a%20b"')
+  })
+
   it('links between the Kindle pages', () => {
     const html = renderKindleSpotifyPage(null, null, 5)
     expect(html).toContain('href="/kindle"')

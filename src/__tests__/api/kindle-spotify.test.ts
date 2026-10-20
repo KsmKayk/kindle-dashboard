@@ -70,6 +70,16 @@ describe('POST /kindle/spotify/control', () => {
     expect(res.headers.get('location')).toBe('/kindle/spotify?r=10')
   })
 
+  it('keeps the access token in the redirect', async () => {
+    const request = new Request('http://localhost:3000/kindle/spotify/control?token=s3cret', {
+      method: 'POST',
+      body: new URLSearchParams({ action: 'next', r: '5' }),
+    })
+    const pending = POST(request)
+    await jest.runAllTimersAsync()
+    expect((await pending).headers.get('location')).toBe('/kindle/spotify?r=5&token=s3cret')
+  })
+
   it('passes the Spotify error to the page', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {})
     mockControl.mockRejectedValue(new SpotifyControlError(404))

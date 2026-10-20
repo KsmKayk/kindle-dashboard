@@ -20,7 +20,7 @@ export async function GET(request: Request): Promise<Response> {
     }
   }
 
-  const html = renderKindleSpotifyPage(playback, lyrics, interval, searchParams.get('error'))
+  const html = renderKindleSpotifyPage(playback, lyrics, interval, searchParams.get('error'), searchParams.get('token'))
   return new Response(html, {
     status: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },

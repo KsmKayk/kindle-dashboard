@@ -125,8 +125,12 @@ function SpotifyView:poll()
     if data then
         self.offline = nil
         self:apply(data)
+    elseif err == 401 then
+        self.offline = _("The server needs an access token.\nSet it in Tools → Kindle Dashboard → Access token.")
+        self.playback, self.loaded = nil, false
+        self:render("ui")
     elseif not self.playback then
-        self.offline = tostring(err)
+        self.offline = T(_("Could not reach the server:\n%1\n\nRetrying every %2 s."), tostring(err), POLL_SECONDS)
         self:render("ui")
     end
     self:schedulePoll(POLL_SECONDS)
@@ -198,7 +202,10 @@ function SpotifyView:control(action)
         UIManager:forceRePaint()
     end
     local body, code = self.api:postJSON("/api/spotify/control", { action = action })
-    if code ~= 200 then
+    if code == 401 then
+        self.control_error = _("Access token missing or wrong (Tools → Kindle Dashboard → Access token)")
+        self:render("ui")
+    elseif code ~= 200 then
         self.control_error = (type(body) == "table" and type(body.error) == "string") and body.error
             or T(_("Playback control failed (%1)"), tostring(code))
         self:render("ui")
@@ -448,9 +455,7 @@ end
 function SpotifyView:build()
     local track = trackOf(self.playback)
     if not track then
-        if self.offline then
-            return self:message(T(_("Could not reach the server:\n%1\n\nRetrying every %2 s."), self.offline, POLL_SECONDS))
-        end
+        if self.offline then return self:message(self.offline) end
         return self:message(self.loaded and _("Nothing played yet.\nStart a track on Spotify.") or _("Loading…"))
     end
 

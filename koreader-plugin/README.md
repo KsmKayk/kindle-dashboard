@@ -37,6 +37,7 @@ In **Tools → Kindle Dashboard**:
 | Setting | Default |
 |---|---|
 | Server | *not set*: your kindle-dashboard URL, e.g. `https://dashboard.example.com` (asked the first time you open the plugin) |
+| Access token | *not set*: the server's `KINDLE_API_TOKEN`, needed for the Spotify tab when the server sets one |
 | Dashboard refresh | 60 s (minimum 15) |
 
 To open it with a gesture, add **Kindle Dashboard** (or **Kindle Dashboard: Spotify**) to a
