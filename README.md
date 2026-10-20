@@ -2,7 +2,7 @@
 
 # AutumnFaun Dashboard
 
-*A personal e-ink dashboard served to a Kindle Paperwhite via its built-in web browser*
+*A personal e-ink dashboard for a Kindle: a KOReader plugin, a TRMNL screen or the built-in web browser*
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -17,13 +17,24 @@
 
 ## What is this?
 
-A self-hosted web dashboard that turns a **Kindle** into an always-on e-ink status display. The Kindle sits on a desk showing Steam activity, League of Legends stats and what's playing on Spotify — refreshing automatically, no interaction needed.
+A self-hosted dashboard that turns a **Kindle** into an e-ink status display. The Kindle sits on a desk showing Steam activity, League of Legends stats and what's playing on Spotify, refreshing on its own. With the KOReader plugin it also becomes a small hub you can touch: switch tabs, control Spotify and follow synced lyrics.
 
 The main app is a full React/Next.js dashboard for modern browsers. The Kindle can show it in three ways:
 
-- **[TRMNL + LaraPaper](#trmnl--larapaper-recommended)** *(recommended)* — a self-hosted [LaraPaper](https://github.com/usetrmnl/larapaper) server renders the dashboard into an e-ink image and the Kindle just displays it.
-- **[KOReader plugin](#koreader-plugin)** — a native app on the Kindle with a dashboard tab and a Spotify tab (synced lyrics, playback buttons), redrawing only what changes.
+- **[KOReader plugin](#koreader-plugin)** *(interactive)* — a native app on the Kindle with a **Dashboard** tab and a **Spotify** tab (cover, Prev / Play-Pause / Next buttons, synced lyrics). It refreshes more often than the other options and redraws only the part of the screen that changed.
+- **[TRMNL + LaraPaper](#trmnl--larapaper)** *(static display)* — a self-hosted [LaraPaper](https://github.com/usetrmnl/larapaper) server renders the dashboard into an e-ink image and the Kindle just displays it.
 - **[Fullscreen browser](#the-rendering-challenge--how-to-make-it-work-on-a-kindle)** — a dedicated `/kindle` route serves a zero-JavaScript, pre-rendered HTML page that even the oldest WebKit browser can handle.
+
+### Which one to use
+
+| | KOReader plugin | TRMNL + LaraPaper | Fullscreen browser |
+|---|---|---|---|
+| **Best for** | An interactive hub: tabs, Spotify controls, live lyrics | A set-and-forget display | Trying it out with the fewest moving parts |
+| **On the Kindle** | Jailbreak + KUAL + KOReader + plugin folder | Jailbreak + a TRMNL client | Jailbreak + KUAL + fullscreen browser |
+| **On the server** | This app | This app + LaraPaper | This app |
+| **Updates** | Dashboard every 60 s; Spotify every 5 s, lyrics line by line | On the device refresh interval (e.g. 60 s) | Whole-page reload (meta refresh) |
+| **Screen redraw** | Only the changed region (lyrics box, progress bar) | Whole screen | Whole screen |
+| **Touch** | Tabs, swipe, Spotify buttons | None | Links and Spotify buttons (each tap reloads the page) |
 
 <div align="center">
 
@@ -56,6 +67,7 @@ Getting a web app to display correctly on a Kindle is not straightforward. The K
 | **PNG screenshot (Puppeteer)** | Perfect visual match | Requires headless Chrome on server; heavy dependency | ❌ |
 | **Next.js ISR** | Static-ish output | Still ships a React bundle the Kindle has to execute | ❌ |
 | **Pure HTML route** | Zero JS, works on any browser | No interactivity (acceptable for a dashboard) | ✅ |
+| **Native KOReader plugin** | Real widgets, touch, partial e-ink refresh; no browser at all | Needs KOReader on the Kindle | ✅ see [KOReader plugin](#koreader-plugin) |
 
 ### The Solution
 
@@ -108,7 +120,7 @@ whether a smoother, script-driven player is possible on that Kindle.
 
 ---
 
-## TRMNL + LaraPaper (recommended)
+## TRMNL + LaraPaper
 
 [TRMNL](https://trmnl.com/) is an e-ink dashboard platform. Instead of TRMNL's cloud, this project uses
 [**LaraPaper**](https://github.com/usetrmnl/larapaper), a self-hosted TRMNL server, so everything runs on your own machine.
@@ -123,11 +135,8 @@ Kindle (TRMNL client) ──every N s──► LaraPaper ──polls──► th
 2. It renders the Liquid template [`trmnl-plugin/template.html`](trmnl-plugin/template.html) into a PNG sized for the Kindle (no e-ink browser limitations).
 3. The Kindle's TRMNL client downloads and shows the image on its refresh interval.
 
-| Approach | Setup | Needs | Interactivity |
-|---|---|---|---|
-| **TRMNL + LaraPaper** | Install LaraPaper + a TRMNL client on the Kindle | A server for LaraPaper | None — static image |
-| **KOReader plugin** | Jailbreak + KUAL + KOReader + plugin folder | Kindle can reach the app | Tabs, Spotify buttons, synced lyrics with partial refresh |
-| **Fullscreen browser** (`/kindle`) | Jailbreak + KUAL + fullscreen browser | Kindle can reach the app | Links and Spotify buttons; meta refresh |
+The image is static: no buttons, and it changes only when the device refreshes. For an interactive
+screen, use the [KOReader plugin](#koreader-plugin) (see [Which one to use](#which-one-to-use)).
 
 **Full setup** (installing LaraPaper, the Kindle device model, the plugin, refresh intervals and troubleshooting):
 [`trmnl-plugin/README.md`](trmnl-plugin/README.md).
@@ -136,16 +145,41 @@ Kindle (TRMNL client) ──every N s──► LaraPaper ──polls──► th
 
 ## KOReader plugin
 
-[`koreader-plugin/kindledash.koplugin`](koreader-plugin/) is a [KOReader](https://github.com/koreader/koreader)
-plugin that opens full screen with two tabs:
+[KOReader](https://github.com/koreader/koreader) is an open-source e-book reader that runs on
+jailbroken Kindles and has a Lua plugin system with native widgets, touch input and control over how
+the e-ink panel refreshes. [`koreader-plugin/kindledash.koplugin`](koreader-plugin/) uses it to turn
+the Kindle into a small hub, without the limits of the Kindle browser (no JavaScript, full-page reloads).
 
-- **Dashboard** — Steam + League, rendered by this app as a grayscale PNG sized to the screen
-  (`/api/kindle/dashboard.png`, built with `next/og`) and refreshed every 60 s.
-- **Spotify** — cover, progress, **Prev / Play-Pause / Next** buttons and synced lyrics that follow
-  the song between polls, redrawing only the lyrics box on each line change.
+It opens full screen with a tab bar (**Dashboard**, **Spotify**, **Close**); switch tabs with the
+buttons or by swiping left/right.
 
-Install: copy the `kindledash.koplugin` folder into `koreader/plugins/` on the Kindle, then open
-**Tools → Kindle Dashboard**. Full instructions: [`koreader-plugin/README.md`](koreader-plugin/README.md).
+- **Dashboard** — Steam + League with the same look as `/kindle`. This app renders it as a grayscale
+  PNG sized to the screen (`/api/kindle/dashboard.png`, built with `next/og`) and the plugin downloads
+  it every 60 s (configurable, minimum 15 s).
+- **Spotify** — album cover, track, progress bar, **Prev / Play-Pause / Next** buttons and synced
+  lyrics. The plugin polls `/api/spotify` every 5 s and a local clock moves the lyrics between polls:
+  each line change redraws only the lyrics box, so the screen doesn't flash on every line.
+
+```
+Kindle (KOReader + kindledash.koplugin)            this app
+  Dashboard tab ── every 60 s ───────────────────► /api/kindle/dashboard.png?w=&h=
+  Spotify tab   ── every 5 s ────────────────────► /api/spotify
+                ── once per track ───────────────► /api/spotify/lyrics, /api/image-proxy (cover)
+                ── on tap ───────────────────────► POST /api/spotify/control
+```
+
+**Install** (after the jailbreak and KUAL, see [Kindle Setup](#kindle-setup)):
+
+1. Download `koreader-kindlepw2-*.zip` from the [KOReader releases](https://github.com/koreader/koreader/releases)
+   (covers the Kindle 10th gen, Paperwhite 2 and newer), unzip it at the root of the Kindle and start
+   KOReader from KUAL.
+2. Copy the `koreader-plugin/kindledash.koplugin` folder into `koreader/plugins/` on the Kindle and
+   restart KOReader.
+3. Open **Tools → Kindle Dashboard → Open dashboard**. Set your server under **Server** in the same menu.
+
+The plugin updates only while the Kindle is awake: to leave it running as a hub, turn off KOReader's
+autosuspend and keep the Kindle plugged in (Wi-Fi stays on). Settings, gestures, troubleshooting and
+development notes: [`koreader-plugin/README.md`](koreader-plugin/README.md).
 
 ---
 
@@ -155,7 +189,7 @@ Install: copy the `kindledash.koplugin` folder into `koreader/plugins/` on the K
 |---|---|
 | 🎮 **Steam** | Online status · Now Playing card with game art (*Last played* on the TRMNL screen when not in game) · Top 3 games with hours played · Total library count |
 | 🏆 **League of Legends** | Summoner profile · Last 4 matches with queue type, KDA and W/L badge · Top 3 champions with winrate bar |
-| 🎵 **Spotify** | Current (or last played) track with album art · full player with lyrics and controls at `/spotify` |
+| 🎵 **Spotify** | Current (or last played) track with album art · player with synced lyrics and controls in the KOReader plugin, on `/kindle/spotify` and at `/spotify` |
 | 💾 **Saved data** | Last successful Steam/League/Spotify data is kept on disk; a failed API call never blanks the screen |
 
 ---
@@ -173,7 +207,8 @@ Spotify appears in five places:
 | **`/spotify`** | Full player in a modern browser: live progress, lyrics ([LRCLIB](https://lrclib.net), synced or plain) and previous / play-pause / next controls. Shows the last played track when nothing is playing. |
 
 The TRMNL screen is a static image, so it cannot have playback buttons, and it changes only when the Kindle refreshes
-(a 60 s refresh interval follows track changes within about a minute). For controls, use `/spotify`.
+(a 60 s refresh interval follows track changes within about a minute). For controls on the Kindle, use the
+KOReader plugin or `/kindle/spotify`; in a modern browser, `/spotify`.
 
 Playback controls need **Spotify Premium** and an active device (a Spotify app that is playing or was recently playing); otherwise the player shows Spotify's error under the controls.
 
@@ -306,7 +341,7 @@ One-time server setup:
 
 ### LRCLIB
 
-`LRCLIB_API_URL` needs no key — [LRCLIB](https://lrclib.net) is a free lyrics API (used by `/spotify`).
+`LRCLIB_API_URL` needs no key — [LRCLIB](https://lrclib.net) is a free lyrics API (used by `/spotify`, `/kindle/spotify` and the KOReader plugin).
 
 ---
 
@@ -314,7 +349,8 @@ One-time server setup:
 
 - [x] Spotify on the e-ink screen — current / last played track on the TRMNL screen
 - [x] Data persistence — last successful API responses are saved, so failures and restarts never blank the dashboard
-- [ ] Partial screen update — refresh only changed sections instead of full-page reloads, to reduce e-ink flicker
+- [x] Partial screen update — the KOReader plugin redraws only the changed region (lyrics box, progress bar) instead of the whole screen
+- [x] Interactive Kindle hub — KOReader plugin with tabs, Spotify controls and synced lyrics
 
 ---
 
