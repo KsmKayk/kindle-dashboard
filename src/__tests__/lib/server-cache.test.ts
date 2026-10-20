@@ -90,6 +90,19 @@ describe('getCachedLeagueData', () => {
     await expect(getCachedLeagueData()).rejects.toThrow('429')
   })
 
+  it('does not call the API again right after a failure', async () => {
+    mockLeague.mockRejectedValueOnce(new Error('Riot API error 429'))
+    await expect(getCachedLeagueData()).rejects.toThrow('429')
+    await expect(getCachedLeagueData()).rejects.toThrow('429')
+    expect(mockLeague).toHaveBeenCalledTimes(1)
+  })
+
+  it('shares one fetch between concurrent requests', async () => {
+    const results = await Promise.all([getCachedLeagueData(), getCachedLeagueData(), getCachedLeagueData()])
+    expect(results).toEqual([fakeLeague, fakeLeague, fakeLeague])
+    expect(mockLeague).toHaveBeenCalledTimes(1)
+  })
+
   it('serves saved data from disk when the first fetch after a restart fails', async () => {
     await getCachedLeagueData()
     resetCacheForTest({ keepDisk: true })

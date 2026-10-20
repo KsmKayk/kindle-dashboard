@@ -28,7 +28,28 @@ function writeDisk<T>(key: string, entry: Entry<T>) {
   }
 }
 
+// After a failed fetch, wait this long before calling the API again (Riot's
+// rate-limit window is 2 minutes), instead of retrying on every request.
+const FAILURE_COOLDOWN_MS = 120_000
+
 const memory = new Map<string, Entry<unknown>>()
+const inFlight = new Map<string, Promise<unknown>>()
+const lastFailure = new Map<string, { error: unknown; at: number }>()
+
+async function fetchAndSave<T>(key: string, build: () => Promise<T>): Promise<T> {
+  try {
+    const data = await build()
+    if (data == null) throw new Error(`${key} fetch returned no data`)
+    const fresh = { data, at: Date.now() }
+    memory.set(key, fresh)
+    writeDisk(key, fresh)
+    lastFailure.delete(key)
+    return data
+  } catch (err) {
+    lastFailure.set(key, { error: err, at: Date.now() })
+    throw err
+  }
+}
 
 async function cached<T>(key: string, ttlMs: number, build: () => Promise<T>): Promise<T> {
   if (!memory.has(key)) {
@@ -38,13 +59,21 @@ async function cached<T>(key: string, ttlMs: number, build: () => Promise<T>): P
   const entry = memory.get(key) as Entry<T> | undefined
   if (entry && Date.now() - entry.at < ttlMs) return entry.data
 
+  const failure = lastFailure.get(key)
+  if (failure && Date.now() - failure.at < FAILURE_COOLDOWN_MS) {
+    if (entry) return entry.data
+    throw failure.error
+  }
+
+  // Concurrent requests share one fetch instead of each calling the API.
+  let pending = inFlight.get(key) as Promise<T> | undefined
+  if (!pending) {
+    pending = fetchAndSave(key, build).finally(() => inFlight.delete(key))
+    inFlight.set(key, pending)
+  }
+
   try {
-    const data = await build()
-    if (data == null) throw new Error(`${key} fetch returned no data`)
-    const fresh = { data, at: Date.now() }
-    memory.set(key, fresh)
-    writeDisk(key, fresh)
-    return data
+    return await pending
   } catch (err) {
     if (!entry) throw err
     console.error(`[server-cache] ${key} refetch failed, serving saved data`, err)
@@ -65,5 +94,7 @@ export function getCachedLeagueData(): Promise<LeagueData> {
 
 export function resetCacheForTest({ keepDisk = false } = {}) {
   memory.clear()
+  inFlight.clear()
+  lastFailure.clear()
   if (!keepDisk) rmSync(cacheDir(), { recursive: true, force: true })
 }
