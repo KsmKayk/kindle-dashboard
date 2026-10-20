@@ -20,7 +20,6 @@ local _ = require("gettext")
 local Api = require("kdash_api")
 local Hub = require("kdash_hub")
 
-local DEFAULT_SERVER = "https://kindle.ksmkayk.com.br"
 local DEFAULT_DASHBOARD_INTERVAL = 60
 local MIN_DASHBOARD_INTERVAL = 15
 
@@ -39,8 +38,9 @@ function KindleDash:init()
     self.ui.menu:registerToMainMenu(self)
 end
 
+-- The kindle-dashboard server, e.g. https://dashboard.example.com (nil until set)
 function KindleDash:serverUrl()
-    return G_reader_settings:readSetting("kindledash_server_url") or DEFAULT_SERVER
+    return G_reader_settings:readSetting("kindledash_server_url")
 end
 
 function KindleDash:dashboardInterval()
@@ -49,6 +49,11 @@ end
 
 function KindleDash:open(view)
     if self.hub then return end
+    if not self:serverUrl() then
+        -- First use: ask for the server, then open
+        self:editServer(nil, function() self:open(view) end)
+        return
+    end
     NetworkMgr:runWhenOnline(function()
         if self.hub then return end
         local cache_dir = DataStorage:getDataDir() .. "/cache/kindledash"
@@ -101,6 +106,18 @@ function KindleDash:editSetting(title, value, input_type, on_save, touchmenu_ins
     dialog:onShowKeyboard()
 end
 
+function KindleDash:editServer(touchmenu_instance, after_save)
+    self:editSetting(_("Kindle Dashboard server URL"), self:serverUrl() or "https://", "text", function(value)
+        value = util.trim(value):gsub("/+$", "")
+        if value == "" or value == "https:" or value == "http:" then
+            G_reader_settings:delSetting("kindledash_server_url")
+        else
+            G_reader_settings:saveSetting("kindledash_server_url", value)
+            if after_save then UIManager:nextTick(after_save) end
+        end
+    end, touchmenu_instance)
+end
+
 function KindleDash:addToMainMenu(menu_items)
     menu_items.kindledash = {
         text = _("Kindle Dashboard"),
@@ -116,15 +133,9 @@ function KindleDash:addToMainMenu(menu_items)
                 separator = true,
             },
             {
-                text_func = function() return T(_("Server: %1"), self:serverUrl()) end,
+                text_func = function() return T(_("Server: %1"), self:serverUrl() or _("not set")) end,
                 keep_menu_open = true,
-                callback = function(touchmenu_instance)
-                    self:editSetting(_("Server URL"), self:serverUrl(), "text", function(value)
-                        value = util.trim(value)
-                        if value == "" then value = DEFAULT_SERVER end
-                        G_reader_settings:saveSetting("kindledash_server_url", value)
-                    end, touchmenu_instance)
-                end,
+                callback = function(touchmenu_instance) self:editServer(touchmenu_instance) end,
             },
             {
                 text_func = function() return T(_("Dashboard refresh: %1 s"), self:dashboardInterval()) end,
