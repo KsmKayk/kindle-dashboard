@@ -23,6 +23,9 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs \
  && adduser  --system --uid 1001 nextjs
 
+# Last good Steam/League data (see src/lib/server-cache.ts); a volume in compose.yaml
+RUN mkdir -p /app/.cache && chown nextjs:nodejs /app/.cache
+
 # Next.js standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static   ./.next/static

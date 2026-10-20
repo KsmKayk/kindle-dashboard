@@ -6,4 +6,10 @@ services:
       - "127.0.0.1:${HOST_PORT:-3000}:3000"
     env_file:
       - .env
+    volumes:
+      # last good API data, kept across restarts and deploys
+      - cache:/app/.cache
     restart: unless-stopped
+
+volumes:
+  cache:

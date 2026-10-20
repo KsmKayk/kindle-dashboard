@@ -43,3 +43,6 @@ next-env.d.ts
 
 # project artifacts
 *.zip
+
+# server-cache data
+.cache

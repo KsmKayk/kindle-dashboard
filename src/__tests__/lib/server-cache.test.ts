@@ -1,3 +1,10 @@
+/**
+ * @jest-environment node
+ */
+
+import { mkdtempSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { getCachedSteamData, getCachedLeagueData, resetCacheForTest } from '@/lib/server-cache'
 import { buildSteamData } from '@/lib/steam'
 import { buildLeagueData } from '@/lib/league'
@@ -25,6 +32,7 @@ const fakeLeague: LeagueData = {
 }
 
 beforeEach(() => {
+  process.env.CACHE_DIR = mkdtempSync(join(tmpdir(), 'server-cache-'))
   jest.clearAllMocks()
   resetCacheForTest()
   mockSteam.mockResolvedValue(fakeSteam)
@@ -63,6 +71,39 @@ describe('getCachedLeagueData', () => {
 
   it('returns cached data on second call without fetching again', async () => {
     await getCachedLeagueData()
+    await getCachedLeagueData()
+    expect(mockLeague).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the last good data when a refetch fails', async () => {
+    process.env.LEAGUE_UPDATE_RATE = '0'
+    await getCachedLeagueData()
+    mockLeague.mockRejectedValueOnce(new Error('Riot API error 429'))
+    const data = await getCachedLeagueData()
+    expect(data).toEqual(fakeLeague)
+    expect(mockLeague).toHaveBeenCalledTimes(2)
+    delete process.env.LEAGUE_UPDATE_RATE
+  })
+
+  it('throws when the fetch fails and there is no saved data', async () => {
+    mockLeague.mockRejectedValueOnce(new Error('Riot API error 429'))
+    await expect(getCachedLeagueData()).rejects.toThrow('429')
+  })
+
+  it('serves saved data from disk when the first fetch after a restart fails', async () => {
+    await getCachedLeagueData()
+    resetCacheForTest({ keepDisk: true })
+    process.env.LEAGUE_UPDATE_RATE = '0'
+    mockLeague.mockRejectedValueOnce(new Error('Riot API error 429'))
+    const data = await getCachedLeagueData()
+    expect(data).toEqual(fakeLeague)
+    expect(mockLeague).toHaveBeenCalledTimes(2)
+    delete process.env.LEAGUE_UPDATE_RATE
+  })
+
+  it('does not refetch after a restart while saved data is fresh', async () => {
+    await getCachedLeagueData()
+    resetCacheForTest({ keepDisk: true })
     await getCachedLeagueData()
     expect(mockLeague).toHaveBeenCalledTimes(1)
   })

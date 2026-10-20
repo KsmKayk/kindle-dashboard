@@ -7,3 +7,4 @@ node_modules
 handoff-temp
 kindle-dashboard-handoff.zip
 docs
+.cache

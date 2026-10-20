@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { buildLeagueData } from '@/lib/league'
+import { getCachedLeagueData } from '@/lib/server-cache'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const data = await buildLeagueData()
+    const data = await getCachedLeagueData()
     return NextResponse.json(data)
   } catch (err) {
     console.error('[api/league]', err)
