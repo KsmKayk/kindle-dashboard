@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
     })
   } catch (err) {
     console.error('[api/spotify/lyrics]', err)
-    return NextResponse.json(null)
+    // 503 tells the player to retry; a 200 null means the track has no lyrics
+    return NextResponse.json(null, { status: 503 })
   }
 }

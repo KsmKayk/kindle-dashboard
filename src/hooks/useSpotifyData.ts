@@ -31,9 +31,11 @@ export function useSpotifyData(): SpotifyState & {
     try {
       const params = new URLSearchParams({ title, artist, album, durationMs: String(durationMs) })
       const res = await fetch(`/api/spotify/lyrics?${params}`)
-      setLyrics(res.ok ? await res.json() : null)
+      if (!res.ok) throw new Error(`lyrics ${res.status}`)
+      setLyrics(await res.json())
     } catch {
-      setLyrics(null)
+      // Lyrics service unavailable: forget the track so the next poll retries
+      lastTrackId.current = null
     }
   }, [])
 

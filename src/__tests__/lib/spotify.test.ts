@@ -83,6 +83,11 @@ describe('Spotify utility functions', () => {
       expect(searchUrl.searchParams.get('artist_name')).toBe('TheFox')
     })
 
+    it('throws when LRCLIB is unavailable so the caller can retry', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 503 }))
+      await expect(getLyrics('Song', 'Artist', 'Album')).rejects.toThrow('LRCLIB unavailable')
+    })
+
     it('uses the exact lookup when it has lyrics', async () => {
       const fetchMock = jest.spyOn(global, 'fetch')
         .mockResolvedValueOnce(Response.json({ syncedLyrics: '[00:05.00] Hello' }))

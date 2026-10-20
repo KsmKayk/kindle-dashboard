@@ -121,6 +121,7 @@ export async function getLyrics(
   exact.searchParams.set('artist_name', artist)
   exact.searchParams.set('album_name', album)
   const res = await fetch(exact.toString())
+  if (res.status >= 500) throw new Error(`LRCLIB unavailable: ${res.status}`)
   if (res.ok) {
     const lyrics = toLyricsData(await res.json())
     if (lyrics) return lyrics
@@ -132,6 +133,7 @@ export async function getLyrics(
   search.searchParams.set('track_name', title)
   search.searchParams.set('artist_name', artist.split(', ')[0])
   const searchRes = await fetch(search.toString())
+  if (searchRes.status >= 500) throw new Error(`LRCLIB unavailable: ${searchRes.status}`)
   if (!searchRes.ok) return null
   const best = pickLrcLibResult(await searchRes.json(), durationMs)
   return best ? toLyricsData(best) : null
