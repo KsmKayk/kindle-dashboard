@@ -3,7 +3,8 @@ services:
     build: .
     ports:
       # HOST_PORT lets the server pick a free port (set in its .env); 3000 locally.
-      - "127.0.0.1:${HOST_PORT:-3000}:3000"
+      # HOST_BIND=0.0.0.0 exposes it on the LAN (e.g. for the /kindle browser setup).
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-3000}:3000"
     env_file:
       - .env
     volumes:

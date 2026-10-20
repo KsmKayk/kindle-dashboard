@@ -9,7 +9,7 @@
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com)
 [![Steam](https://img.shields.io/badge/Steam-API-171A21?style=flat-square&logo=steam)](https://steamcommunity.com/dev)
 [![Riot Games](https://img.shields.io/badge/Riot-API-D32936?style=flat-square&logo=riotgames&logoColor=white)](https://developer.riotgames.com)
-[![Spotify](https://img.shields.io/badge/Spotify-WIP-1DB954?style=flat-square&logo=spotify&logoColor=white)](https://developer.spotify.com)
+[![Spotify](https://img.shields.io/badge/Spotify-API-1DB954?style=flat-square&logo=spotify&logoColor=white)](https://developer.spotify.com)
 
 </div>
 
@@ -17,9 +17,12 @@
 
 ## What is this?
 
-A self-hosted web dashboard that runs on a **Kindle Paperwhite** acting as an always-on status display. The Kindle sits on a desk with its browser open in fullscreen, showing Steam activity and League of Legends stats — refreshing automatically, no interaction needed.
+A self-hosted web dashboard that turns a **Kindle** into an always-on e-ink status display. The Kindle sits on a desk showing Steam activity, League of Legends stats and what's playing on Spotify — refreshing automatically, no interaction needed.
 
-The main app is a full React/Next.js dashboard for modern browsers. For the Kindle, a dedicated `/kindle` route serves a zero-JavaScript, pre-rendered HTML page that even the oldest WebKit browser can handle.
+The main app is a full React/Next.js dashboard for modern browsers. The Kindle can show it in two ways:
+
+- **[TRMNL + LaraPaper](#trmnl--larapaper-recommended)** *(recommended)* — a self-hosted [LaraPaper](https://github.com/usetrmnl/larapaper) server renders the dashboard into an e-ink image and the Kindle just displays it.
+- **[Fullscreen browser](#the-rendering-challenge--how-to-make-it-work-on-a-kindle)** — a dedicated `/kindle` route serves a zero-JavaScript, pre-rendered HTML page that even the oldest WebKit browser can handle.
 
 <div align="center">
 
@@ -69,7 +72,7 @@ The visual design matches the React dashboard component-by-component — same co
 
 > **Prerequisite:** The Kindle must be jailbroken to install the fullscreen browser. The steps below assume you've already got the server running locally or via Docker.
 
-1. **Get the server running** — follow the [Running Locally](#running-locally) or [Running with Docker](#running-with-docker) steps below until the dashboard is accessible at `http://localhost:3000` or your LAN IP.
+1. **Get the server running** — follow the [Running Locally](#running-locally) or [Running with Docker](#running-with-docker) steps below until the dashboard is accessible at `http://localhost:3000` or your LAN IP (with Docker, set `HOST_BIND=0.0.0.0` in `.env` for LAN access).
 
 2. **Jailbreak your Kindle** — ([video walkthrough](https://youtu.be/l4ZliC82RtA?si=FmbEArpWFKxcYqRo) · [jailbreak documentation](https://kindlemodding.org/kindle-models.html))
    My device was on firmware **5.18.1** and I used [**AdBreak**](https://github.com/notmarek/adbreak) to jailbreak it.
@@ -88,24 +91,28 @@ The visual design matches the React dashboard component-by-component — same co
 
 ---
 
-## Alternative: TRMNL + KOReader
+## TRMNL + LaraPaper (recommended)
 
-[TRMNL](https://usetrmnl.com/) is a cloud-based e-ink dashboard service. Combined with [KOReader](https://koreader.rocks/) — open-source reader software that runs on Kindle, Kobo, PocketBook, and other devices — it provides a simpler setup path that skips the jailbreak entirely.
+[TRMNL](https://trmnl.com/) is an e-ink dashboard platform. Instead of TRMNL's cloud, this project uses
+[**LaraPaper**](https://github.com/usetrmnl/larapaper), a self-hosted TRMNL server, so everything runs on your own machine.
 
-| Approach | Setup | Hardware | Offline? |
+```
+Kindle (TRMNL client) ──every N s──► LaraPaper ──polls──► this app's /api/trmnl (JSON)
+        ▲                                │
+        └──────── 600×800 PNG ◄──────────┘ renders trmnl-plugin/template.html
+```
+
+1. LaraPaper polls `/api/trmnl` for JSON (Steam + League + Spotify).
+2. It renders the Liquid template [`trmnl-plugin/template.html`](trmnl-plugin/template.html) into a PNG sized for the Kindle (no e-ink browser limitations).
+3. The Kindle's TRMNL client downloads and shows the image on its refresh interval.
+
+| Approach | Setup | Needs | Interactivity |
 |---|---|---|---|
-| **Fullscreen browser** (Kindle jailbreak) | Medium — jailbreak + KUAL required | Kindle Paperwhite | ✅ LAN only |
-| **TRMNL + KOReader** | Low — cloud service handles rendering | Any KOReader-compatible e-ink device | ❌ Needs internet |
+| **TRMNL + LaraPaper** | Install LaraPaper + a TRMNL client on the Kindle | A server for LaraPaper | None — static image |
+| **Fullscreen browser** (`/kindle`) | Jailbreak + KUAL + fullscreen browser | Kindle on the same network as the app | None — meta refresh |
 
-### How it works
-
-1. TRMNL polls your server's `/api/trmnl` endpoint for JSON data (Steam + League)
-2. TRMNL renders the plugin's Liquid template on its servers into a static image (no e-ink browser limitations)
-3. The rendered image is pushed to your KOReader device via TRMNL's BYOD client
-
-### Setup
-
-See [`trmnl-plugin/README.md`](trmnl-plugin/README.md) for step-by-step plugin configuration.
+**Full setup** (installing LaraPaper, the Kindle device model, the plugin, refresh intervals and troubleshooting):
+[`trmnl-plugin/README.md`](trmnl-plugin/README.md).
 
 ---
 
@@ -115,19 +122,26 @@ See [`trmnl-plugin/README.md`](trmnl-plugin/README.md) for step-by-step plugin c
 |---|---|
 | 🎮 **Steam** | Online status · Now Playing card with game art · Top 3 games with hours played · Total library count |
 | 🏆 **League of Legends** | Summoner profile · Last 4 matches with queue type, KDA and W/L badge · Top 3 champions with winrate bar |
-| 🎵 **Spotify** | Compact now-playing card with album art and progress bar *(see note below)* |
+| 🎵 **Spotify** | Current (or last played) track with album art · full player with lyrics and controls at `/spotify` |
+| 💾 **Saved data** | Last successful Steam/League/Spotify data is kept on disk; a failed API call never blanks the screen |
 
 ---
 
-## ⚠️ Spotify — Work in Progress
+## Spotify
 
-Spotify integration is **WIP**. The full experience — live player, synced lyrics, playback controls — is available at `/spotify` and requires a modern browser capable of running React and polling the API client-side.
+Spotify appears in three places:
 
-**The `/kindle` route shows a static Spotify card only when a track is actively playing at page-load time.** Because the Kindle page has no JavaScript, it cannot poll for changes; the card only updates when the meta-refresh fires (every 60 seconds).
+| Where | What it shows |
+|---|---|
+| **TRMNL screen** (`/api/trmnl`) | Album cover, track and artist. *Now playing* while a track plays; when playback stops it keeps the *Last played* track (saved on disk, so it survives restarts). |
+| **`/kindle`** | A static now-playing card, only when a track is playing at page-load time; updates with the page's meta refresh. |
+| **`/spotify`** | Full player in a modern browser: live progress, synced lyrics ([LRCLIB](https://lrclib.net)) and playback controls. |
 
-> **Spotify on `/kindle` only works reliably on newer Kindle models** whose browsers can handle the OAuth callback and modern HTTPS correctly. Older Kindles that depend on the `/kindle` static route will not see Spotify data — the section is simply omitted when no refresh token is configured.
->
-> For the full Spotify experience (controls, lyrics, live progress), use a modern browser at `/spotify`.
+The TRMNL screen is a static image, so it cannot have playback buttons, and it changes only when the Kindle refreshes
+(a 60 s refresh interval follows track changes within about a minute). For controls, use `/spotify`.
+
+Connecting your account needs a one-time OAuth authorization that produces `SPOTIFY_REFRESH_TOKEN` —
+see [Spotify keys](#spotify-keys) below.
 
 ---
 
@@ -142,6 +156,8 @@ Spotify integration is **WIP**. The full experience — live player, synced lyri
 - **Data Dragon** — champion images and profile icons
 - **Spotify Web API + LRCLIB** — currently playing track, synced lyrics
 - **Docker** — multi-stage build with Sharp native binaries for Alpine
+- **LaraPaper** — self-hosted TRMNL server that renders the e-ink screen
+- **GitHub Actions** — deploys to the production server on every push to `master`
 
 ---
 
@@ -163,7 +179,8 @@ npm run dev
 | `http://localhost:3000` | Main React dashboard |
 | `http://localhost:3000/kindle` | Kindle-optimized static HTML view |
 | `http://localhost:3000/spotify` | Full Spotify player |
-| `http://localhost:3000/api/spotify/auth` | Start Spotify OAuth flow |
+| `http://localhost:3000/api/trmnl` | JSON payload for the TRMNL / LaraPaper plugin |
+| `http://127.0.0.1:3000/api/spotify/auth` | Start Spotify OAuth flow (use `127.0.0.1`, see [Spotify keys](#spotify-keys)) |
 
 ## Running with Docker
 
@@ -172,7 +189,28 @@ docker compose build
 docker compose up -d
 ```
 
-The server starts on port `3000`. Access the Kindle route from any device on the same network at `http://<host-ip>:3000/kindle`.
+The server listens on `127.0.0.1:3000`. Set `HOST_PORT` in `.env` to use another port, and `HOST_BIND=0.0.0.0` to reach it from other devices on the LAN (e.g. the Kindle browser at `http://<host-ip>:3000/kindle`); on a public server keep the default and put a reverse proxy in front.
+Successful API responses are saved in the `cache` volume (`/app/.cache`), so the last good data survives restarts and deploys.
+
+## Deploying (GitHub Actions)
+
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) deploys on every push to `master` (or manually via *Run workflow*):
+it SSHes into the server, resets the checkout to `origin/master`, rebuilds and restarts the container, and checks that the app answers.
+
+One-time server setup:
+
+1. Clone the repo on the server and create its `.env` (same variables as below, plus `HOST_PORT`, e.g. `3400`). The `.env` is not in git — edit it on the server when a key changes, then run `docker compose up -d`.
+2. Add a reverse proxy site for the app (nginx + `certbot --nginx`), proxying to `127.0.0.1:$HOST_PORT` with the `Host` and `X-Forwarded-Proto` headers (the Spotify callback URL is built from them).
+3. Create an SSH key for the workflow, add its public key to the server's `~/.ssh/authorized_keys`, and set these repository secrets:
+
+| Secret | Value |
+|---|---|
+| `SERVER_HOST` | Server IP or hostname |
+| `SERVER_USER` | SSH user |
+| `SERVER_SSH_KEY` | The workflow's private key |
+| `SERVER_PATH` | Absolute path of the checkout on the server |
+
+> If Docker on the server is installed via **snap**, its AppArmor profile blocks DNS for the buildx client, so registry lookups during `docker build` fail. The workflow works around it by pulling the base images with `docker pull` first.
 
 ---
 
@@ -190,22 +228,61 @@ The server starts on port `3000`. Access the Kindle route from any device on the
 | `LRCLIB_API_URL` | LRCLIB lyrics API base URL | `https://lrclib.net/api/` |
 | `STEAM_UPDATE_RATE` | Steam cache TTL and Kindle refresh interval (seconds) | `60` |
 | `LEAGUE_UPDATE_RATE` | League cache TTL (seconds) | `600` |
-| `SPOTIFY_UPDATE_RATE` | Spotify polling interval for main dashboard (seconds) | `10` |
+| `SPOTIFY_UPDATE_RATE` | Spotify polling interval for main dashboard (seconds) | `5` |
+| `HOST_PORT` | Docker only: host port published by `compose.yaml` | `3000` |
+| `HOST_BIND` | Docker only: host address the port is published on (`0.0.0.0` for LAN access) | `127.0.0.1` |
+| `CACHE_DIR` | Where the last good API data is saved | `.cache` |
 
 > **Riot API note:** development keys expire every 24 hours. The app resolves accounts by Riot ID (`Name#TAG`) via the Account API — no encrypted summoner ID needs to be stored or updated when the key rotates.
 
 ---
 
+## Getting the API keys
+
+### Steam keys
+
+1. **`STEAM_API_KEY`** — sign in at [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey), enter any domain name (e.g. your server's), accept the terms and copy the key. The account must not be a limited account (it needs at least US$5 spent on Steam).
+2. **`STEAM_ID`** — your 64-bit SteamID (17 digits, starts with `7656119`). If your profile URL is `steamcommunity.com/profiles/7656119…`, it is that number; if it uses a custom name, look it up at [steamid.io](https://steamid.io).
+3. In Steam, **Edit Profile → Privacy Settings**: set *My profile* and *Game details* to **Public**, otherwise owned games and playtime come back empty.
+
+### Riot keys
+
+1. **`LEAGUE_API_KEY`** — sign in at [developer.riotgames.com](https://developer.riotgames.com) with your Riot account. The dashboard shows a **Development API Key**; copy it.
+   - Development keys **expire every 24 hours**: click *Regenerate API Key* and update the `.env` (on the server too).
+   - Limits are 20 requests/second and 100 requests/2 minutes. A League refresh uses ~23 requests, so the app fetches matches one at a time, caches the result for `LEAGUE_UPDATE_RATE` seconds and backs off for 2 minutes after a failure.
+   - For a key that does not expire, apply for a **Personal API Key** via *Register Product* on the developer portal.
+2. **`RIOT_ID`** — your Riot ID as shown in the client, in `Name#TAG` format (e.g. `AutumnFaun#SH4C0`).
+
+> Regions are fixed in [`src/lib/league.ts`](src/lib/league.ts): `br1` for summoner data and `americas` for account/match data. Change `BR1_BASE` / `AMERICAS_BASE` if your account is in another region.
+
+### Spotify keys
+
+1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) → **Create app**:
+   - **Redirect URIs** — add one for each place you will authorize from:
+     - local: `http://127.0.0.1:3000/api/spotify/callback` (Spotify does not accept `localhost`, only the loopback IP)
+     - server: `https://YOUR_DOMAIN/api/spotify/callback`
+   - **APIs used**: *Web API*.
+2. Open the app's **Settings** and copy **Client ID** → `SPOTIFY_API_CLIENT_ID` and **Client secret** → `SPOTIFY_API_CLIENT_SECRET`.
+3. While the app is in *Development mode*, add your Spotify account's e-mail under **User Management**.
+4. Start the app and open `/api/spotify/auth` **on the same host as the redirect URI** (`http://127.0.0.1:3000/api/spotify/auth` locally, `https://YOUR_DOMAIN/api/spotify/auth` on the server). Log in and accept.
+5. The callback page shows `SPOTIFY_REFRESH_TOKEN=…` — put it in `.env` and restart the app (`docker compose up -d` on the server). The token does not expire; repeat only if you revoke access or change the app.
+
+### LRCLIB
+
+`LRCLIB_API_URL` needs no key — [LRCLIB](https://lrclib.net) is a free lyrics API (used by `/spotify`).
+
+---
+
 ## Roadmap
 
-- [ ] Fix and complete Spotify integration — live now-playing on `/kindle` with proper OAuth handling for older Kindle browsers
-- [ ] Data persistence — cache last successful API responses so the dashboard survives temporary API failures or network blips
+- [x] Spotify on the e-ink screen — current / last played track on the TRMNL screen
+- [x] Data persistence — last successful API responses are saved, so failures and restarts never blank the dashboard
 - [ ] Partial screen update — refresh only changed sections instead of full-page reloads, to reduce e-ink flicker
 
 ---
 
 <div align="center">
 
-*Built for a Kindle Paperwhite sitting on a desk*
+*Built for a Kindle sitting on a desk*
 
 </div>
