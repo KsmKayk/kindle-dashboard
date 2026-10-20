@@ -68,6 +68,22 @@ A dedicated `/kindle` route handler that:
 
 The visual design matches the React dashboard component-by-component — same color palette, same typography, same layout — rendered as static HTML instead of React.
 
+### Pages
+
+A bar at the top switches between the two pages with plain links:
+
+| Page | What it shows | Reloads every |
+|---|---|---|
+| **`/kindle`** | Steam + League dashboard. While a track plays, the bar shows *♪ track · artist* (tap it to open the player). | `min(STEAM_UPDATE_RATE, LEAGUE_UPDATE_RATE)` s |
+| **`/kindle/spotify`** | Spotify player: album cover, progress, the current lyric line with the lines around it, and **PREV / PLAY-PAUSE / NEXT** buttons. | 5 s while playing (`?r=10` sets another interval, 2–600), 30 s while paused, and right when the track ends |
+
+The buttons are HTML forms: a tap posts the command to `/kindle/spotify/control`, which sends it to
+Spotify (Premium required) and redirects back to the player, so they work without JavaScript. Each
+reload redraws the whole e-ink screen, so lyrics move one step per reload; a longer `?r=` saves battery.
+
+The small **JS** marker next to the title appears only if the browser runs JavaScript, which tells
+whether a smoother, script-driven player is possible on that Kindle.
+
 ### Kindle Setup
 
 > **Prerequisite:** The Kindle must be jailbroken to install the fullscreen browser. The steps below assume you've already got the server running locally or via Docker.
@@ -109,7 +125,7 @@ Kindle (TRMNL client) ──every N s──► LaraPaper ──polls──► th
 | Approach | Setup | Needs | Interactivity |
 |---|---|---|---|
 | **TRMNL + LaraPaper** | Install LaraPaper + a TRMNL client on the Kindle | A server for LaraPaper | None — static image |
-| **Fullscreen browser** (`/kindle`) | Jailbreak + KUAL + fullscreen browser | Kindle on the same network as the app | None — meta refresh |
+| **Fullscreen browser** (`/kindle`) | Jailbreak + KUAL + fullscreen browser | Kindle can reach the app | Links and Spotify buttons; meta refresh |
 
 **Full setup** (installing LaraPaper, the Kindle device model, the plugin, refresh intervals and troubleshooting):
 [`trmnl-plugin/README.md`](trmnl-plugin/README.md).
@@ -129,12 +145,13 @@ Kindle (TRMNL client) ──every N s──► LaraPaper ──polls──► th
 
 ## Spotify
 
-Spotify appears in three places:
+Spotify appears in four places:
 
 | Where | What it shows |
 |---|---|
 | **TRMNL screen** (`/api/trmnl`) | Album cover, track and artist. *Now playing* while a track plays; when playback stops it keeps the *Last played* track (saved on disk, so it survives restarts). |
-| **`/kindle`** | A static now-playing card, only when a track is playing at page-load time; updates with the page's meta refresh. |
+| **`/kindle`** | *♪ track · artist* in the top bar while a track plays. |
+| **`/kindle/spotify`** | Zero-JavaScript player for the Kindle browser: cover, current lyric lines and previous / play-pause / next buttons, reloading every 5 s (see [Pages](#pages)). |
 | **`/spotify`** | Full player in a modern browser: live progress, lyrics ([LRCLIB](https://lrclib.net), synced or plain) and previous / play-pause / next controls. Shows the last played track when nothing is playing. |
 
 The TRMNL screen is a static image, so it cannot have playback buttons, and it changes only when the Kindle refreshes

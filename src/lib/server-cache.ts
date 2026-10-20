@@ -2,8 +2,8 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { buildSteamData } from './steam'
 import { buildLeagueData } from './league'
-import { getAccessToken, getCurrentlyPlaying } from './spotify'
-import type { SteamData, LeagueData, SpotifyPlayback } from '@/types'
+import { getAccessToken, getCurrentlyPlaying, getLyrics } from './spotify'
+import type { SteamData, LeagueData, SpotifyPlayback, SpotifyTrackInfo, LyricsData } from '@/types'
 
 interface Entry<T> { data: T; at: number }
 
@@ -104,6 +104,18 @@ export async function getSpotifyNowOrLast(): Promise<SpotifyPlayback | null> {
   }
 }
 
+// Lyrics of the last track asked for: the /kindle/spotify page reloads every few
+// seconds and must not hit LRCLIB each time. Lookup errors are not stored, so the
+// next reload retries.
+let lastLyrics: { trackId: string; data: LyricsData | null } | null = null
+
+export async function getCachedLyrics(track: SpotifyTrackInfo): Promise<LyricsData | null> {
+  if (lastLyrics?.trackId === track.id) return lastLyrics.data
+  const data = await getLyrics(track.title, track.artist, track.album, track.durationMs)
+  lastLyrics = { trackId: track.id, data }
+  return data
+}
+
 function steamTtlMs() { return parseInt(process.env.STEAM_UPDATE_RATE ?? '60', 10) * 1000 }
 function leagueTtlMs() { return parseInt(process.env.LEAGUE_UPDATE_RATE ?? '600', 10) * 1000 }
 
@@ -119,5 +131,6 @@ export function resetCacheForTest({ keepDisk = false } = {}) {
   memory.clear()
   inFlight.clear()
   lastFailure.clear()
+  lastLyrics = null
   if (!keepDisk) rmSync(cacheDir(), { recursive: true, force: true })
 }

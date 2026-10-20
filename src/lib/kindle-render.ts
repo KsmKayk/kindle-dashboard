@@ -1,9 +1,9 @@
 import type { SteamData, SteamNowPlaying, SteamTopGame, LeagueData, MatchResult, ChampionStat, SpotifyPlayback } from '@/types'
 
-const INK = '#1a1612'
-const INK_MUTED = '#7a7268'
-const PAPER = '#e8e3d8'
-const PAPER_LIGHT = '#f1ede2'
+export const INK = '#1a1612'
+export const INK_MUTED = '#7a7268'
+export const PAPER = '#e8e3d8'
+export const PAPER_LIGHT = '#f1ede2'
 const PAPER_DARK = '#d8d2c4'
 const PAPER_DARKER = '#c4bdac'
 
@@ -18,16 +18,16 @@ export function escapeHtml(str: string): string {
 // Relative URL so browsers resolve it against the current page host.
 // Absolute URLs break in Docker/reverse-proxy where request.url reflects
 // the internal address (localhost) rather than the LAN IP the client used.
-function proxyImg(url: string): string {
+export function proxyImg(url: string): string {
   return `/api/image-proxy?url=${encodeURIComponent(url)}`
 }
 
-function formatTime(ms: number): string {
+export function formatTime(ms: number): string {
   const s = Math.floor(ms / 1000)
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-function sectionHeader(label: string, meta: string): string {
+export function sectionHeader(label: string, meta: string): string {
   return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
   <span style="font-family:'Helvetica Neue',Arial,sans-serif;font-size:10px;font-weight:bold;letter-spacing:2.5px;color:${INK};white-space:nowrap;">${label}</span>
   <div style="flex:1;height:1px;background:${INK};"></div>
@@ -164,7 +164,7 @@ function renderMatchCard(match: MatchResult): string {
 </div>`
 }
 
-function renderWinrateBar(value: number): string {
+export function renderWinrateBar(value: number): string {
   const pct = Math.min(100, Math.max(0, value))
   return `<div style="width:100%;height:4px;background:${PAPER_DARKER};border-radius:2px;overflow:hidden;border:1px solid ${INK};box-sizing:border-box;">
   <div style="width:${pct}%;height:100%;background:${INK};"></div>
@@ -220,38 +220,46 @@ function renderLeague(data: LeagueData | null): string {
 </div>`
 }
 
-function renderSpotify(data: SpotifyPlayback | null): string {
-  if (!data?.isPlaying || !data.track) return ''
-  const track = data.track
-  const pct = track.durationMs > 0 ? Math.min(100, Math.max(0, (track.progressMs / track.durationMs) * 100)) : 0
-
-  const coverImg = track.coverUrl
-    ? `<img src="${proxyImg(track.coverUrl)}" alt="${escapeHtml(track.title)}" width="44" height="44" style="display:block;width:44px;height:44px;" onerror="this.style.display='none'">`
-    : ''
-
-  return `<div style="margin-bottom:8px;">
-  ${sectionHeader('SPOTIFY', 'now playing')}
-  <div style="background:${PAPER_LIGHT};border:1px solid ${INK};border-radius:10px;box-sizing:border-box;padding:9px 10px;display:flex;align-items:center;gap:12px;overflow:hidden;">
-    <div style="width:44px;height:44px;border-radius:6px;overflow:hidden;border:1px solid ${INK};flex-shrink:0;">${coverImg}</div>
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:14px;font-weight:bold;font-family:Georgia,serif;letter-spacing:-0.2px;overflow:hidden;white-space:nowrap;">${escapeHtml(track.title)}</div>
-      <div style="font-size:11px;font-family:Georgia,serif;font-style:italic;color:${INK};margin-top:1px;overflow:hidden;white-space:nowrap;">${escapeHtml(track.artist)}</div>
-      <div style="margin-top:5px;">${renderWinrateBar(pct)}</div>
-      <div style="display:flex;justify-content:space-between;margin-top:3px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:9px;letter-spacing:1px;color:${INK_MUTED};">
-        <span>${formatTime(track.progressMs)}</span>
-        <span>${formatTime(track.durationMs)}</span>
-      </div>
-    </div>
-  </div>
-</div>`
+// On the dashboard the playing track is a one-line link in the nav bar: a full
+// card would push the page past the 800px screen.
+function nowPlayingLabel(data: SpotifyPlayback | null): string | null {
+  if (!data?.isPlaying || !data.track) return null
+  return `${data.track.title} · ${data.track.artist}`
 }
 
-function renderFooter(): string {
-  return `<div style="display:flex;align-items:center;justify-content:center;gap:10px;padding-top:10px;">
-  <div style="flex:1;height:1px;background:${INK};opacity:0.3;max-width:140px;"></div>
-  <div style="font-family:Georgia,serif;font-size:11px;letter-spacing:3px;color:${INK};font-weight:normal;font-style:italic;">AutumnFaun Dashboard</div>
-  <div style="flex:1;height:1px;background:${INK};opacity:0.3;max-width:140px;"></div>
-</div>`
+export type KindleView = 'dashboard' | 'spotify'
+
+function navTab(label: string, href: string, active: boolean): string {
+  const colors = active ? `background:${INK};color:${PAPER};` : `background:transparent;color:${INK};`
+  return `<a href="${href}" style="${colors}display:inline-block;border:1px solid ${INK};border-radius:9999px;padding:6px 16px;margin-left:6px;font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;font-weight:bold;letter-spacing:2px;text-decoration:none;">${label}</a>`
+}
+
+// Top bar shared by the /kindle pages: plain links, so it works without JavaScript.
+// The tiny script only reports whether the browser runs JS (shows "JS" when it does).
+export function renderNav(active: KindleView, nowPlaying: string | null = null): string {
+  const left = nowPlaying
+    ? `<a href="/kindle/spotify" style="color:${INK};text-decoration:none;">&#9835; ${escapeHtml(nowPlaying)}</a>`
+    : 'AutumnFaun'
+  return `<div style="display:flex;align-items:center;margin-bottom:12px;">
+  <div style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:Georgia,serif;font-size:13px;font-style:italic;letter-spacing:0.5px;">${left} <span id="js-flag" style="font-family:'Helvetica Neue',Arial,sans-serif;font-style:normal;font-size:8px;letter-spacing:1px;color:${INK_MUTED};"></span></div>
+  ${navTab('DASHBOARD', '/kindle', active === 'dashboard')}${navTab('SPOTIFY', '/kindle/spotify', active === 'spotify')}
+</div>
+<script>document.getElementById('js-flag').innerHTML = 'JS';</script>`
+}
+
+export function renderKindleDocument(title: string, refreshSeconds: number, body: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=600, initial-scale=1, user-scalable=no">
+<meta http-equiv="refresh" content="${refreshSeconds}">
+<title>${title}</title>
+</head>
+<body style="background:${PAPER};color:${INK};font-family:Georgia,'Times New Roman',serif;margin:0;padding:16px 22px;width:600px;box-sizing:border-box;">
+${body}
+</body>
+</html>`
 }
 
 // baseUrl is kept in the signature for backward compatibility with the route
@@ -267,19 +275,11 @@ export function renderKindlePage(
   const leagueRate = parseInt(process.env.LEAGUE_UPDATE_RATE ?? '600', 10)
   const refreshSeconds = Math.min(steamRate, leagueRate)
 
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=600, initial-scale=1, user-scalable=no">
-<meta http-equiv="refresh" content="${refreshSeconds}">
-<title>AutumnFaun Dashboard</title>
-</head>
-<body style="background:${PAPER};color:${INK};font-family:Georgia,'Times New Roman',serif;margin:0;padding:20px 22px 16px;width:556px;box-sizing:border-box;">
+  return renderKindleDocument(
+    'AutumnFaun Dashboard',
+    refreshSeconds,
+    `${renderNav('dashboard', nowPlayingLabel(spotify))}
 ${renderSteam(steam)}
-${renderLeague(league)}
-${renderSpotify(spotify)}
-${renderFooter()}
-</body>
-</html>`
+${renderLeague(league)}`
+  )
 }

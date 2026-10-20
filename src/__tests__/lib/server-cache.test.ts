@@ -5,10 +5,10 @@
 import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { getCachedSteamData, getCachedLeagueData, getSpotifyNowOrLast, resetCacheForTest } from '@/lib/server-cache'
+import { getCachedSteamData, getCachedLeagueData, getSpotifyNowOrLast, getCachedLyrics, resetCacheForTest } from '@/lib/server-cache'
 import { buildSteamData } from '@/lib/steam'
 import { buildLeagueData } from '@/lib/league'
-import { getAccessToken, getCurrentlyPlaying } from '@/lib/spotify'
+import { getAccessToken, getCurrentlyPlaying, getLyrics } from '@/lib/spotify'
 import type { SteamData, LeagueData, SpotifyPlayback } from '@/types'
 
 jest.mock('@/lib/steam')
@@ -19,6 +19,7 @@ const mockSteam = buildSteamData as jest.MockedFunction<typeof buildSteamData>
 const mockLeague = buildLeagueData as jest.MockedFunction<typeof buildLeagueData>
 const mockToken = getAccessToken as jest.MockedFunction<typeof getAccessToken>
 const mockPlaying = getCurrentlyPlaying as jest.MockedFunction<typeof getCurrentlyPlaying>
+const mockLyrics = getLyrics as jest.MockedFunction<typeof getLyrics>
 
 const fakeSteam: SteamData = {
   nowPlaying: null,
@@ -160,5 +161,30 @@ describe('getSpotifyNowOrLast', () => {
   it('returns null when nothing has ever played', async () => {
     mockPlaying.mockResolvedValueOnce({ isPlaying: false, track: null })
     expect(await getSpotifyNowOrLast()).toBeNull()
+  })
+})
+
+describe('getCachedLyrics', () => {
+  const track = {
+    title: 'Song', artist: 'Artist', album: 'Album', durationMs: 1000, progressMs: 0,
+    coverUrl: null, fallback: 'A', id: 't1',
+  }
+
+  it('looks lyrics up once per track', async () => {
+    mockLyrics.mockResolvedValue({ synced: [], plain: ['la la'] })
+    await getCachedLyrics(track)
+    await getCachedLyrics(track)
+    expect(mockLyrics).toHaveBeenCalledTimes(1)
+    await getCachedLyrics({ ...track, id: 't2' })
+    expect(mockLyrics).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries after a failed lookup', async () => {
+    mockLyrics.mockRejectedValueOnce(new Error('LRCLIB unavailable: 503'))
+    mockLyrics.mockResolvedValueOnce(null)
+    await expect(getCachedLyrics(track)).rejects.toThrow('LRCLIB')
+    await expect(getCachedLyrics(track)).resolves.toBeNull()
+    await getCachedLyrics(track)
+    expect(mockLyrics).toHaveBeenCalledTimes(2)
   })
 })
