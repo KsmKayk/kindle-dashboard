@@ -30,6 +30,11 @@ jobs:
             git fetch origin master
             git reset --hard origin/master
 
+            # The server's snap Docker AppArmor profile blocks DNS from the buildx client,
+            # so registry lookups during the build fail. Pull base images through the
+            # daemon first; the build then finds them locally.
+            awk '/^FROM/ && $2 ~ /:/ {print $2}' Dockerfile | sort -u | xargs -n1 docker pull -q
+
             docker compose build dashboard
             docker compose up -d --no-deps dashboard
 
