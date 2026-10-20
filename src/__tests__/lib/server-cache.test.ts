@@ -5,16 +5,20 @@
 import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { getCachedSteamData, getCachedLeagueData, resetCacheForTest } from '@/lib/server-cache'
+import { getCachedSteamData, getCachedLeagueData, getSpotifyNowOrLast, resetCacheForTest } from '@/lib/server-cache'
 import { buildSteamData } from '@/lib/steam'
 import { buildLeagueData } from '@/lib/league'
-import type { SteamData, LeagueData } from '@/types'
+import { getAccessToken, getCurrentlyPlaying } from '@/lib/spotify'
+import type { SteamData, LeagueData, SpotifyPlayback } from '@/types'
 
 jest.mock('@/lib/steam')
 jest.mock('@/lib/league')
+jest.mock('@/lib/spotify')
 
 const mockSteam = buildSteamData as jest.MockedFunction<typeof buildSteamData>
 const mockLeague = buildLeagueData as jest.MockedFunction<typeof buildLeagueData>
+const mockToken = getAccessToken as jest.MockedFunction<typeof getAccessToken>
+const mockPlaying = getCurrentlyPlaying as jest.MockedFunction<typeof getCurrentlyPlaying>
 
 const fakeSteam: SteamData = {
   nowPlaying: null,
@@ -37,6 +41,7 @@ beforeEach(() => {
   resetCacheForTest()
   mockSteam.mockResolvedValue(fakeSteam)
   mockLeague.mockResolvedValue(fakeLeague)
+  mockToken.mockResolvedValue('token')
 })
 
 describe('getCachedSteamData', () => {
@@ -119,5 +124,40 @@ describe('getCachedLeagueData', () => {
     resetCacheForTest({ keepDisk: true })
     await getCachedLeagueData()
     expect(mockLeague).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('getSpotifyNowOrLast', () => {
+  const playing: SpotifyPlayback = {
+    isPlaying: true,
+    track: {
+      title: 'Song', artist: 'Artist', album: 'Album', durationMs: 1000, progressMs: 10,
+      coverUrl: 'http://i.scdn.co/cover.jpg', fallback: 'ARTIST', id: 'abc',
+    },
+  }
+
+  it('returns the current track', async () => {
+    mockPlaying.mockResolvedValue(playing)
+    expect(await getSpotifyNowOrLast()).toEqual(playing)
+  })
+
+  it('returns the last played track, not playing, when nothing is playing', async () => {
+    mockPlaying.mockResolvedValueOnce(playing)
+    await getSpotifyNowOrLast()
+    mockPlaying.mockResolvedValueOnce({ isPlaying: false, track: null })
+    expect(await getSpotifyNowOrLast()).toEqual({ ...playing, isPlaying: false })
+  })
+
+  it('returns the last played track when Spotify fails, also after a restart', async () => {
+    mockPlaying.mockResolvedValueOnce(playing)
+    await getSpotifyNowOrLast()
+    resetCacheForTest({ keepDisk: true })
+    mockPlaying.mockRejectedValueOnce(new Error('Spotify API error: 503'))
+    expect(await getSpotifyNowOrLast()).toEqual({ ...playing, isPlaying: false })
+  })
+
+  it('returns null when nothing has ever played', async () => {
+    mockPlaying.mockResolvedValueOnce({ isPlaying: false, track: null })
+    expect(await getSpotifyNowOrLast()).toBeNull()
   })
 })

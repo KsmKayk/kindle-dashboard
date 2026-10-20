@@ -2,7 +2,8 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { buildSteamData } from './steam'
 import { buildLeagueData } from './league'
-import type { SteamData, LeagueData } from '@/types'
+import { getAccessToken, getCurrentlyPlaying } from './spotify'
+import type { SteamData, LeagueData, SpotifyPlayback } from '@/types'
 
 interface Entry<T> { data: T; at: number }
 
@@ -52,11 +53,7 @@ async function fetchAndSave<T>(key: string, build: () => Promise<T>): Promise<T>
 }
 
 async function cached<T>(key: string, ttlMs: number, build: () => Promise<T>): Promise<T> {
-  if (!memory.has(key)) {
-    const saved = readDisk<T>(key)
-    if (saved) memory.set(key, saved)
-  }
-  const entry = memory.get(key) as Entry<T> | undefined
+  const entry = savedEntry<T>(key)
   if (entry && Date.now() - entry.at < ttlMs) return entry.data
 
   const failure = lastFailure.get(key)
@@ -78,6 +75,32 @@ async function cached<T>(key: string, ttlMs: number, build: () => Promise<T>): P
     if (!entry) throw err
     console.error(`[server-cache] ${key} refetch failed, serving saved data`, err)
     return entry.data
+  }
+}
+
+function savedEntry<T>(key: string): Entry<T> | undefined {
+  if (!memory.has(key)) {
+    const saved = readDisk<T>(key)
+    if (saved) memory.set(key, saved)
+  }
+  return memory.get(key) as Entry<T> | undefined
+}
+
+// The current track, or the last one played (isPlaying: false) when nothing is
+// playing or Spotify is unreachable. Not TTL-cached: it should change with the track.
+export async function getSpotifyNowOrLast(): Promise<SpotifyPlayback | null> {
+  const saved = savedEntry<SpotifyPlayback>('spotify')
+  const last = saved ? { ...saved.data, isPlaying: false } : null
+  try {
+    const playback = await getCurrentlyPlaying(await getAccessToken())
+    if (!playback.track) return last
+    const fresh = { data: playback, at: Date.now() }
+    memory.set('spotify', fresh)
+    writeDisk('spotify', fresh)
+    return playback
+  } catch (err) {
+    console.error('[server-cache] spotify fetch failed, serving last track', err)
+    return last
   }
 }
 

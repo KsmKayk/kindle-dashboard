@@ -1,6 +1,6 @@
 # AutumnFaun Dashboard — TRMNL Plugin
 
-Displays the Steam + League of Legends dashboard on any TRMNL-compatible e-ink device.
+Displays the Steam + League of Legends + Spotify dashboard on any TRMNL-compatible e-ink device.
 
 ## How it works
 
@@ -39,7 +39,7 @@ Options:
 
 - League data has its own TTL (`LEAGUE_UPDATE_RATE`, default 600 s).
 - If an API is unavailable, the relevant section shows "unavailable" instead of crashing.
-- Spotify is not included in this plugin yet (see the project roadmap).
+- Spotify shows the current track, or the last played one (`spotify_playing: false`) when nothing is playing. The screen only changes when the device refreshes, so lower the refresh interval to follow track changes more closely. The image is static: playback buttons are not possible.
 
 ## Payload schema
 
@@ -58,6 +58,10 @@ The `/api/trmnl` endpoint returns this JSON shape (all fields are always present
   "league_level": 312,
   "league_icon": "https://ddragon.../icon/123.png",
   "league_matches": [{ "champion": "Jinx", "win": true, "kda": "10/2/5", "queue": "Ranked Solo", "img": "https://..." }],
-  "league_top_champs": [{ "rank": 1, "name": "Jinx", "games": 15, "winrate": 67, "img": "https://..." }]
+  "league_top_champs": [{ "rank": 1, "name": "Jinx", "games": 15, "winrate": 67, "img": "https://..." }],
+  "spotify_playing": true,
+  "spotify_title": "Bohemian Rhapsody",
+  "spotify_artist": "Queen",
+  "spotify_cover": "https://i.scdn.co/image/..."
 }
 ```

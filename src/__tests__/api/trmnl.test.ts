@@ -27,6 +27,13 @@ jest.mock('@/lib/server-cache', () => ({
     ],
     ddVersion: '14.0.1',
   }),
+  getSpotifyNowOrLast: jest.fn().mockResolvedValue({
+    isPlaying: true,
+    track: {
+      title: 'Bohemian Rhapsody', artist: 'Queen', album: 'A Night at the Opera', durationMs: 354000,
+      progressMs: 1000, coverUrl: 'http://i.scdn.co/cover.jpg', fallback: 'QUEEN', id: 'abc',
+    },
+  }),
 }))
 
 describe('GET /api/trmnl', () => {
@@ -82,5 +89,23 @@ describe('GET /api/trmnl', () => {
     expect(body.league_name).toBeNull()
     expect(body.league_matches).toEqual([])
     expect(body.steam_username).toBe('AutumnFaun')
+  })
+
+  it('includes spotify fields', async () => {
+    const res = await GET()
+    const body = await res.json()
+    expect(body.spotify_playing).toBe(true)
+    expect(body.spotify_title).toBe('Bohemian Rhapsody')
+    expect(body.spotify_artist).toBe('Queen')
+    expect(body.spotify_cover).toBe('http://i.scdn.co/cover.jpg')
+  })
+
+  it('returns spotify nulls when nothing has ever played', async () => {
+    const { getSpotifyNowOrLast } = jest.requireMock('@/lib/server-cache')
+    getSpotifyNowOrLast.mockResolvedValueOnce(null)
+    const res = await GET()
+    const body = await res.json()
+    expect(body.spotify_playing).toBe(false)
+    expect(body.spotify_title).toBeNull()
   })
 })

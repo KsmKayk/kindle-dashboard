@@ -1,5 +1,5 @@
-import { getCachedSteamData, getCachedLeagueData } from '@/lib/server-cache'
-import type { SteamData, LeagueData } from '@/types'
+import { getCachedSteamData, getCachedLeagueData, getSpotifyNowOrLast } from '@/lib/server-cache'
+import type { SteamData, LeagueData, SpotifyPlayback } from '@/types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -58,14 +58,26 @@ function leaguePayload(league: LeagueData | null) {
   }
 }
 
+function spotifyPayload(spotify: SpotifyPlayback | null) {
+  const track = spotify?.track
+  return {
+    spotify_playing: spotify?.isPlaying ?? false,
+    spotify_title: track?.title ?? null,
+    spotify_artist: track?.artist ?? null,
+    spotify_cover: track?.coverUrl ?? null,
+  }
+}
+
 export async function GET(): Promise<Response> {
-  const [steam, league] = await Promise.all([
+  const [steam, league, spotify] = await Promise.all([
     getCachedSteamData().catch((): SteamData | null => null),
     getCachedLeagueData().catch((): LeagueData | null => null),
+    getSpotifyNowOrLast(),
   ])
 
   return Response.json({
     ...steamPayload(steam),
     ...leaguePayload(league),
+    ...spotifyPayload(spotify),
   })
 }
