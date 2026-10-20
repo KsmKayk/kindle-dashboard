@@ -7,6 +7,24 @@ import type { SpotifyPlayback, LyricsData } from '@/types'
 const POLL_INTERVAL_MS = 5000
 // Spotify applies a command asynchronously; poll again after this delay
 const CONTROL_SETTLE_MS = 800
+// The progress clock ticks locally; it only re-syncs to Spotify's position when
+// they drift further apart than this (polled positions arrive with network lag,
+// and resetting on every poll made the lyrics jump back and forth).
+const RESYNC_DRIFT_MS = 1500
+const CLOCK_TICK_MS = 100
+
+interface PlaybackClock {
+  trackId: string | null
+  positionMs: number // position at `at`
+  at: number
+  playing: boolean
+  durationMs: number
+}
+
+function clockPosition(clock: PlaybackClock, now = Date.now()): number {
+  if (!clock.playing) return clock.positionMs
+  return Math.min(clock.positionMs + (now - clock.at), clock.durationMs)
+}
 
 type ControlAction = 'play' | 'pause' | 'next' | 'previous'
 
@@ -25,7 +43,7 @@ export function useSpotifyData(): SpotifyState & {
   const [liveProgressMs, setLiveProgressMs] = useState(0)
   const [controlError, setControlError] = useState<string | null>(null)
   const lastTrackId = useRef<string | null>(null)
-  const lastPollMs = useRef<number>(0)
+  const clock = useRef<PlaybackClock>({ trackId: null, positionMs: 0, at: 0, playing: false, durationMs: 0 })
 
   const fetchLyrics = useCallback(async (title: string, artist: string, album: string, durationMs: number) => {
     try {
@@ -45,8 +63,20 @@ export function useSpotifyData(): SpotifyState & {
       if (!res.ok) return
       const data: SpotifyPlayback = await res.json()
       setPlayback(data)
-      setLiveProgressMs(data.track?.progressMs ?? 0)
-      lastPollMs.current = Date.now()
+
+      const polledMs = data.track?.progressMs ?? 0
+      const current = clock.current
+      const drifted = Math.abs(clockPosition(current) - polledMs) > RESYNC_DRIFT_MS
+      if (current.trackId !== (data.track?.id ?? null) || current.playing !== data.isPlaying || drifted) {
+        clock.current = {
+          trackId: data.track?.id ?? null,
+          positionMs: polledMs,
+          at: Date.now(),
+          playing: data.isPlaying,
+          durationMs: data.track?.durationMs ?? 0,
+        }
+        setLiveProgressMs(polledMs)
+      }
 
       if (data.track && data.track.id !== lastTrackId.current) {
         lastTrackId.current = data.track.id
@@ -63,7 +93,8 @@ export function useSpotifyData(): SpotifyState & {
     if (action === 'play' || action === 'pause') {
       // Optimistic: flip the button right away, the next poll confirms it
       setPlayback((current) => current && { ...current, isPlaying: action === 'play' })
-      lastPollMs.current = Date.now()
+      const now = Date.now()
+      clock.current = { ...clock.current, positionMs: clockPosition(clock.current, now), at: now, playing: action === 'play' }
     }
     try {
       const res = await fetch('/api/spotify/control', {
@@ -90,16 +121,9 @@ export function useSpotifyData(): SpotifyState & {
     }
   }, [fetchPlayback])
 
-  // Smooth progress interpolation between polls (updates every second)
+  // Advance the progress (and so the lyrics) locally between polls; stops while paused
   useEffect(() => {
-    const tickId = setInterval(() => {
-      setPlayback((current) => {
-        if (!current?.isPlaying || !current.track) return current
-        const elapsed = Date.now() - lastPollMs.current
-        setLiveProgressMs(Math.min(current.track.progressMs + elapsed, current.track.durationMs))
-        return current
-      })
-    }, 1000)
+    const tickId = setInterval(() => setLiveProgressMs(clockPosition(clock.current)), CLOCK_TICK_MS)
     return () => clearInterval(tickId)
   }, [])
 
