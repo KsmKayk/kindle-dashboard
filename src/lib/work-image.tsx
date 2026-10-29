@@ -8,6 +8,7 @@ import type { GithubDeploy, GithubPr, GithubStats, PeriodCounts } from '@/types'
 
 const CLAUDE_STALE_MS = 30 * 60_000
 
+const truncate = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1)}…` : text)
 const repoName = (repo: string) => repo.split('/').pop() ?? repo
 
 function Big({ children, size = 23, color }: { children: string; size?: number; color?: string }) {
@@ -80,8 +81,8 @@ function Commits({ gh }: { gh: GithubStats }) {
 function KeyValue({ k, v }: { k: string; v: string }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: SANS, fontSize: 11, padding: '2px 0', borderTop: `1px solid ${PAPER_DARK}` }}>
-      <div style={{ display: 'flex' }}>{k}</div>
-      <div style={{ display: 'flex', fontFamily: SERIF, fontWeight: 700 }}>{v}</div>
+      <div style={{ display: 'flex', flexShrink: 0, marginRight: 8 }}>{k}</div>
+      <div style={{ display: 'flex', minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontFamily: SERIF, fontWeight: 700 }}>{v}</div>
     </div>
   )
 }
@@ -106,8 +107,8 @@ function ReposAndDeploys({ gh, now }: { gh: GithubStats; now: Date }) {
           <Label size={8} color={muted(gh.deploys.some((d) => d.state === 'failure'))}>ÚLTIMOS DEPLOYS</Label>
           {gh.deploys.slice(0, 2).map((d) => (
             <div key={d.repo} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: SANS, fontSize: 11, padding: '2px 0', borderTop: `1px solid ${PAPER_DARK}` }}>
-              <div style={{ display: 'flex' }}>{repoName(d.repo)}</div>
-              <div style={{ display: 'flex', fontWeight: d.state === 'failure' ? 700 : 400 }}>{deployText(d, now)}</div>
+              <div style={{ display: 'flex', minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', marginRight: 8 }}>{repoName(d.repo)}</div>
+              <div style={{ display: 'flex', flexShrink: 0, fontWeight: d.state === 'failure' ? 700 : 400 }}>{deployText(d, now)}</div>
             </div>
           ))}
         </div>
@@ -214,7 +215,7 @@ function Claude({ claude, now }: { claude: ClaudeSummary | null; now: Date }) {
   const split = [
     claude.cachePct === null ? null : `cache ${claude.cachePct}%`,
     claude.models[0] ? `${claude.models[0].name} ${claude.models[0].pct}%` : null,
-    claude.topProject ? `top: ${claude.topProject}` : null,
+    claude.topProject ? `top: ${truncate(claude.topProject, 24)}` : null,
   ].filter(Boolean).join(' · ').toUpperCase()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -230,7 +231,7 @@ function Claude({ claude, now }: { claude: ClaudeSummary | null; now: Date }) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <div style={{ display: 'flex' }}><Bars values={claude.daily} height={34} /></div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 3 }}><Label size={8} spacing={1}>{split}</Label></div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 3, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}><Label size={8} spacing={1}>{split}</Label></div>
         </div>
       </div>
     </div>

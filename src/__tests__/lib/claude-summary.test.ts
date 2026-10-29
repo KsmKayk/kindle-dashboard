@@ -48,3 +48,8 @@ it('is empty for a month without usage', () => {
   expect(s.models).toEqual([])
   expect(s.topProject).toBeNull()
 })
+
+it('has no model split when the month has zero model tokens', () => {
+  const zero = { ...day('2026-10-29', 0) }
+  expect(summarizeClaude({ ...stored, days: [zero] }, now).models).toEqual([])
+})

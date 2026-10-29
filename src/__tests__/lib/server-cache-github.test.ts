@@ -72,3 +72,18 @@ it('does not retry or log the 12-month failure on every request during the coold
   expect(errorLog.mock.calls.length).toBe(logged)
   errorLog.mockRestore()
 })
+
+it('serves stale fast data without waiting for the refetch', async () => {
+  mockSlow.mockReturnValue(new Promise(() => {}))
+  saveEntry('github-fast', fast)
+  const entry = loadEntry<GithubFast>('github-fast')!
+  entry.at = Date.now() - 3_600_000
+  resetCacheForTest({ keepDisk: true })
+  const { writeFileSync } = await import('fs')
+  writeFileSync(join(process.env.CACHE_DIR!, 'github-fast.json'), JSON.stringify(entry))
+  resetCacheForTest({ keepDisk: true })
+  mockFast.mockReturnValue(new Promise(() => {}))
+  const stats = await getCachedGithubStats()
+  expect(stats?.prsOpened.week).toBe(1)
+  expect(mockFast).toHaveBeenCalledTimes(1)
+})

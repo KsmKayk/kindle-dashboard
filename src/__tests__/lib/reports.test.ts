@@ -58,6 +58,12 @@ describe('validation', () => {
     expect(isClaudeReport({ days: [] })).toBe(false)
     expect(isServerReport({ ...server, id: 'Bad Id!' })).toBe(false)
     expect(isServerReport({ ...server, cpu: { ...server.cpu, pct: 'high' } })).toBe(false)
+    expect(isClaudeReport({ limits: null, days: [day, day] })).toBe(false)
+    expect(isClaudeReport({ limits: { ...limits, at: 'yesterday' }, days: [] })).toBe(false)
+    expect(isClaudeReport({ limits: { ...limits, fiveHour: { utilization: 1, resetsAt: 'soon' } }, days: [] })).toBe(false)
+    expect(isClaudeReport({ limits: null, days: [{ ...day, input: -1 }] })).toBe(false)
+    expect(isServerReport({ ...server, uptimeSec: -5 })).toBe(false)
+    expect(isServerReport({ ...server, mem: { totalBytes: 1, usedBytes: -1 } })).toBe(false)
   })
 })
 
@@ -76,6 +82,12 @@ describe('handleReport', () => {
     expect((await handleReport(post('{oops'), isClaudeReport, save)).status).toBe(400)
     expect((await handleReport(post({ days: 1 }), isClaudeReport, save)).status).toBe(400)
     expect(save).not.toHaveBeenCalled()
+  })
+
+  it('rejects an oversized body by its content-length before reading it', async () => {
+    const req = post(claude)
+    req.headers.set('content-length', String(600 * 1024))
+    expect((await handleReport(req, isClaudeReport, save)).status).toBe(413)
   })
 
   it('saves a valid report', async () => {

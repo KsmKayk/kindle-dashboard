@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { toPr, toDeploy, searchCommits, fetchGithubFast } from '@/lib/github'
+import { toPr, toDeploy, searchCommits, fetchGithubFast, backoffMs, MAX_BACKOFF_MS } from '@/lib/github'
 
 describe('toPr', () => {
   it('maps a GraphQL pull request', () => {
@@ -95,14 +95,33 @@ describe('search rate limit', () => {
   it('retries a 403 after retry-after and succeeds', async () => {
     const responses = [new Response('{}', { status: 403, headers: { 'retry-after': '0' } }), ok()]
     const fetchMock = jest.spyOn(global, 'fetch').mockImplementation(async () => responses.shift()!)
-    await expect(searchCommits('author:me', 0)).resolves.toEqual([])
+    await expect(searchCommits('author:me', 0, 3)).resolves.toEqual([])
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('gives up after 3 retries', async () => {
     const fetchMock = jest.spyOn(global, 'fetch').mockImplementation(async () =>
       new Response('{}', { status: 429, headers: { 'retry-after': '0' } }))
-    await expect(searchCommits('author:me', 0)).rejects.toThrow('GitHub 429')
+    await expect(searchCommits('author:me', 0, 3)).rejects.toThrow('GitHub 429')
     expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+
+  it('does not retry without retries (the image request path)', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockImplementation(async () =>
+      new Response('{}', { status: 429, headers: { 'retry-after': '0' } }))
+    await expect(searchCommits('author:me', 0)).rejects.toThrow('GitHub 429')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('throws at once on a 403 that is not a rate limit', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockImplementation(async () => new Response('{}', { status: 403 }))
+    await expect(searchCommits('author:me', 0, 3)).rejects.toThrow('GitHub 403')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('caps the wait', () => {
+    expect(backoffMs(new Response('{}', { status: 403, headers: { 'retry-after': '600' } }))).toBe(MAX_BACKOFF_MS)
+    expect(backoffMs(new Response('{}', { status: 403, headers: { 'retry-after': '5' } }))).toBe(5000)
+    expect(backoffMs(new Response('{}', { status: 403 }))).toBe(60_000)
   })
 })

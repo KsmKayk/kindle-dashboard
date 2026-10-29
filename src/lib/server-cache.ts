@@ -1,11 +1,11 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { buildSteamData } from './steam'
 import { buildLeagueData } from './league'
 import { getAccessToken, getCurrentlyPlaying, getLyrics } from './spotify'
 import { fetchGithubFast, fetchGithubSlow } from './github'
 import { buildGithubStats } from './github-stats'
-import type { SteamData, LeagueData, SpotifyPlayback, SpotifyTrackInfo, LyricsData, GithubStats } from '@/types'
+import type { SteamData, LeagueData, SpotifyPlayback, SpotifyTrackInfo, LyricsData, GithubStats, GithubFast } from '@/types'
 
 interface Entry<T> { data: T; at: number }
 
@@ -25,7 +25,10 @@ function readDisk<T>(key: string): Entry<T> | null {
 function writeDisk<T>(key: string, entry: Entry<T>) {
   try {
     mkdirSync(cacheDir(), { recursive: true })
-    writeFileSync(join(cacheDir(), `${key}.json`), JSON.stringify(entry))
+    // Write beside the target and rename over it, so a crash never leaves half a file
+    const target = join(cacheDir(), `${key}.json`)
+    writeFileSync(`${target}.tmp`, JSON.stringify(entry))
+    renameSync(`${target}.tmp`, target)
   } catch (err) {
     console.error(`[server-cache] could not save ${key}`, err)
   }
@@ -160,7 +163,11 @@ const GITHUB_SLOW_TTL_MS = 3_600_000
 export async function getCachedGithubStats(): Promise<GithubStats | null> {
   if (!process.env.GITHUB_TOKEN) return null
   const slow = cachedInBackground('github-slow', GITHUB_SLOW_TTL_MS, () => fetchGithubSlow())
-  const fast = await cached('github-fast', githubTtlMs(), () => fetchGithubFast())
+  // Never make the image wait for GitHub when something is saved: refresh in the background
+  const build = () => fetchGithubFast()
+  const fast = savedEntry<GithubFast>('github-fast')
+    ? cachedInBackground('github-fast', githubTtlMs(), build)!
+    : await cached('github-fast', githubTtlMs(), build)
   return buildGithubStats(fast, slow, new Date())
 }
 

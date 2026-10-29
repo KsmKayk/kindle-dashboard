@@ -24,30 +24,39 @@ async function searchSlot(gapMs: number): Promise<void> {
   if (wait > 0) await sleep(wait)
 }
 
-const SEARCH_RETRIES = 3
 const DEFAULT_BACKOFF_MS = 60_000
+export const MAX_BACKOFF_MS = 90_000
+// Retries of a rate-limited search: only the background 12-month load waits them out
+const SLOW_SEARCH_RETRIES = 3
 
-// How long to wait after a rate-limit response: retry-after, else until the
-// limit resets when none is left, else a minute
-function backoffMs(res: Response): number {
-  const retryAfter = res.headers.get('retry-after')
-  if (retryAfter !== null && retryAfter !== '' && !Number.isNaN(Number(retryAfter))) return Number(retryAfter) * 1000
-  const reset = res.headers.get('x-ratelimit-reset')
-  if (res.headers.get('x-ratelimit-remaining') === '0' && reset !== null && !Number.isNaN(Number(reset))) {
-    return Math.max(0, Number(reset) * 1000 - Date.now())
-  }
-  return DEFAULT_BACKOFF_MS
+// A 403/429 is a rate limit (not a scope or SAML refusal) when GitHub says so
+function isRateLimit(res: Response): boolean {
+  return res.status === 429 || res.headers.has('retry-after') || res.headers.get('x-ratelimit-remaining') === '0'
 }
 
-async function rest<T>(path: string, gapMs = SEARCH_GAP_MS): Promise<T> {
+// How long to wait after a rate-limit response (retry-after, else until the
+// limit resets when none is left, else a minute), never more than MAX_BACKOFF_MS
+export function backoffMs(res: Response): number {
+  const retryAfter = res.headers.get('retry-after')
+  const reset = res.headers.get('x-ratelimit-reset')
+  let wait = DEFAULT_BACKOFF_MS
+  if (retryAfter !== null && retryAfter !== '' && !Number.isNaN(Number(retryAfter))) wait = Number(retryAfter) * 1000
+  else if (res.headers.get('x-ratelimit-remaining') === '0' && reset !== null && !Number.isNaN(Number(reset))) {
+    wait = Math.max(0, Number(reset) * 1000 - Date.now())
+  }
+  return Math.min(wait, MAX_BACKOFF_MS)
+}
+
+async function rest<T>(path: string, gapMs = SEARCH_GAP_MS, retries = 0): Promise<T> {
   const isSearch = path.startsWith('/search/')
   for (let attempt = 0; ; attempt++) {
     if (isSearch) await searchSlot(gapMs)
     const res = await fetch(`${API}${path}`, { headers: headers(), cache: 'no-store' })
     if (res.ok) return res.json() as Promise<T>
-    // Search has a secondary rate limit: wait it out and retry
-    if (isSearch && (res.status === 403 || res.status === 429) && attempt < SEARCH_RETRIES) {
+    // Search has a secondary rate limit: wait it out (every search waits with us) and retry
+    if (isSearch && (res.status === 403 || res.status === 429) && isRateLimit(res) && attempt < retries) {
       const wait = backoffMs(res)
+      nextSearchAt = Math.max(nextSearchAt, Date.now() + wait)
       console.error(`[github] ${res.status} on ${path}, retrying in ${Math.round(wait / 1000)}s`)
       await sleep(wait)
       continue
@@ -87,18 +96,18 @@ function viewerLogin(): Promise<string> {
   return loginPromise
 }
 
-async function searchCount(q: string): Promise<number> {
-  const body = await rest<{ total_count: number }>(`/search/issues?q=${encodeURIComponent(q)}&per_page=1`)
+async function searchCount(q: string, retries = 0): Promise<number> {
+  const body = await rest<{ total_count: number }>(`/search/issues?q=${encodeURIComponent(q)}&per_page=1`, SEARCH_GAP_MS, retries)
   return body.total_count
 }
 
 interface CommitItem { sha: string; repository: { full_name: string }; commit: { author: { date: string } } }
 
 // Every page of a commit search (GitHub stops at 1000 results)
-export async function searchCommits(q: string, gapMs = SEARCH_GAP_MS): Promise<GithubCommit[]> {
+export async function searchCommits(q: string, gapMs = SEARCH_GAP_MS, retries = 0): Promise<GithubCommit[]> {
   const commits: GithubCommit[] = []
   for (let page = 1; page <= 10; page++) {
-    const body = await rest<{ items: CommitItem[] }>(`/search/commits?q=${encodeURIComponent(q)}&per_page=100&page=${page}`, gapMs)
+    const body = await rest<{ items: CommitItem[] }>(`/search/commits?q=${encodeURIComponent(q)}&per_page=100&page=${page}`, gapMs, retries)
     commits.push(...body.items.map((item) => ({ sha: item.sha, repo: item.repository.full_name, date: item.commit.author.date })))
     if (body.items.length < 100) break
   }
@@ -233,10 +242,10 @@ export async function fetchGithubFast(now = new Date()): Promise<GithubFast> {
 export async function fetchGithubSlow(now = new Date()): Promise<GithubSlow> {
   const user = await viewerLogin()
   const { year } = periodStarts(now)
-  const prsOpenedYear = await searchCount(`is:pr author:${user} created:>=${searchTime(year)}`)
+  const prsOpenedYear = await searchCount(`is:pr author:${user} created:>=${searchTime(year)}`, SLOW_SEARCH_RETRIES)
   const commits: GithubCommit[] = []
   for (const [from, to] of monthWindows(now, 13)) {
-    commits.push(...(await searchCommits(`author:${user} author-date:${from}..${to}`)))
+    commits.push(...(await searchCommits(`author:${user} author-date:${from}..${to}`, SEARCH_GAP_MS, SLOW_SEARCH_RETRIES)))
   }
   const reviews = await searchReviews(user, year)
   return { prsOpenedYear, commits: commits.filter((c) => new Date(c.date) >= year), reviews }

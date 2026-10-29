@@ -19,6 +19,8 @@ export async function handleReport<T>(
   const access = checkAccess({ authorization: request.headers.get('authorization'), query: null, cookie: null }, token)
   if (access !== 'header') return Response.json({ error: 'Invalid report token' }, { status: 401 })
 
+  const declared = Number(request.headers.get('content-length'))
+  if (declared > MAX_BODY_CHARS) return Response.json({ error: 'Report too large' }, { status: 413 })
   const text = await request.text()
   if (text.length > MAX_BODY_CHARS) return Response.json({ error: 'Report too large' }, { status: 413 })
   let body: unknown
@@ -37,45 +39,48 @@ export async function handleReport<T>(
 type Obj = Record<string, unknown>
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v)
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+const isNonNeg = (v: unknown): v is number => isNum(v) && v >= 0
+const isNonNegOrNull = (v: unknown) => v === null || isNonNeg(v)
 const isNumOrNull = (v: unknown) => v === null || isNum(v)
+const isDate = (v: unknown): v is string => isStr(v) && !Number.isNaN(Date.parse(v))
 const isStr = (v: unknown, max = 200): v is string => typeof v === 'string' && v.length <= max
 const isList = (v: unknown, max: number, each: (item: unknown) => boolean) => Array.isArray(v) && v.length <= max && v.every(each)
-const isCounts = (v: unknown) => isObj(v) && Object.keys(v).length <= 200 && Object.values(v).every(isNum)
+const isCounts = (v: unknown) => isObj(v) && Object.keys(v).length <= 200 && Object.values(v).every(isNonNeg)
 
-const isLimit = (v: unknown) => v === null || (isObj(v) && isNum(v.utilization) && isStr(v.resetsAt))
+const isLimit = (v: unknown) => v === null || (isObj(v) && isNonNeg(v.utilization) && isDate(v.resetsAt))
 
 const isDay = (v: unknown) =>
   isObj(v) && isStr(v.date) && /^\d{4}-\d{2}-\d{2}$/.test(v.date) &&
-  isNum(v.input) && isNum(v.output) && isNum(v.cacheWrite) && isNum(v.cacheRead) &&
+  isNonNeg(v.input) && isNonNeg(v.output) && isNonNeg(v.cacheWrite) && isNonNeg(v.cacheRead) &&
   isCounts(v.byModel) && isCounts(v.byProject)
 
 export function isClaudeReport(v: unknown): v is ClaudeReport {
   return isObj(v) &&
-    (v.limits === null || (isObj(v.limits) && isLimit(v.limits.fiveHour) && isLimit(v.limits.sevenDay) && isStr(v.limits.at))) &&
-    isList(v.days, 60, isDay)
+    (v.limits === null || (isObj(v.limits) && isLimit(v.limits.fiveHour) && isLimit(v.limits.sevenDay) && isDate(v.limits.at))) &&
+    isList(v.days, 60, isDay) && new Set((v.days as { date: string }[]).map((d) => d.date)).size === (v.days as unknown[]).length
 }
 
 const isDisk = (v: unknown) =>
   isObj(v) && isStr(v.device, 40) && (v.healthy === null || typeof v.healthy === 'boolean') &&
-  isNumOrNull(v.tempC) && isNumOrNull(v.reallocated) && isNumOrNull(v.pending)
+  isNumOrNull(v.tempC) && isNonNegOrNull(v.reallocated) && isNonNegOrNull(v.pending)
 
 const isRaid = (v: unknown) =>
   v === null || (isObj(v) && isStr(v.device, 40) && isStr(v.level, 20) && isStr(v.state, 40) &&
-    isNum(v.active) && isNum(v.total) && isList(v.members, 32, (m) => isStr(m, 40)) && isNumOrNull(v.syncPct))
+    isNonNeg(v.active) && isNonNeg(v.total) && isList(v.members, 32, (m) => isStr(m, 40)) && isNonNegOrNull(v.syncPct))
 
 const isMount = (v: unknown) =>
-  isObj(v) && isStr(v.path) && isStr(v.device, 80) && isNum(v.totalBytes) && isNum(v.usedBytes) &&
+  isObj(v) && isStr(v.path) && isStr(v.device, 80) && isNonNeg(v.totalBytes) && isNonNeg(v.usedBytes) &&
   isRaid(v.raid) && isList(v.disks, 32, isDisk)
 
 const isContainer = (v: unknown) =>
-  isObj(v) && isStr(v.name) && isStr(v.state, 40) && isStr(v.status) && isList(v.ports, 64, isNum)
+  isObj(v) && isStr(v.name) && isStr(v.state, 40) && isStr(v.status) && isList(v.ports, 64, isNonNeg)
 
 export function isServerReport(v: unknown): v is ServerReport {
   return isObj(v) && isStr(v.id, 40) && /^[a-z0-9-]+$/.test(v.id) && isStr(v.name, 60) && isNum(v.order) &&
-    isStr(v.hostname) && isStr(v.arch, 20) && isNum(v.uptimeSec) &&
-    isObj(v.cpu) && isNum(v.cpu.pct) && isNum(v.cpu.cores) && isNum(v.cpu.load1) && isNumOrNull(v.cpu.tempC) &&
-    isObj(v.mem) && isNum(v.mem.totalBytes) && isNum(v.mem.usedBytes) &&
-    isObj(v.net) && isNum(v.net.rxBps) && isNum(v.net.txBps) &&
+    isStr(v.hostname) && isStr(v.arch, 20) && isNonNeg(v.uptimeSec) &&
+    isObj(v.cpu) && isNonNeg(v.cpu.pct) && isNonNeg(v.cpu.cores) && isNonNeg(v.cpu.load1) && isNumOrNull(v.cpu.tempC) &&
+    isObj(v.mem) && isNonNeg(v.mem.totalBytes) && isNonNeg(v.mem.usedBytes) &&
+    isObj(v.net) && isNonNeg(v.net.rxBps) && isNonNeg(v.net.txBps) &&
     isList(v.mounts, 16, isMount) && isList(v.containers, 100, isContainer)
 }
 

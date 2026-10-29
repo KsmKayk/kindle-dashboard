@@ -58,7 +58,7 @@ export function summarizeClaude(stored: StoredClaude, now: Date): ClaudeSummary 
     tokens: { today: sum(month.filter((d) => d.date === today)), week: sum(stored.days.filter((d) => d.date >= week)), month: sum(month) },
     daily,
     cachePct: cacheBase > 0 ? Math.round((cacheRead / cacheBase) * 100) : null,
-    models: [...models.entries()]
+    models: modelTotal <= 0 ? [] : [...models.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(([name, v]) => ({ name, pct: Math.round((v / modelTotal) * 100) })),
     topProject,
