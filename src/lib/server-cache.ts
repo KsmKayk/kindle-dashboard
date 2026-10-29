@@ -5,6 +5,7 @@ import { buildLeagueData } from './league'
 import { getAccessToken, getCurrentlyPlaying, getLyrics } from './spotify'
 import { fetchGithubFast, fetchGithubSlow } from './github'
 import { buildGithubStats } from './github-stats'
+import { checkTarget, parseHealthTargets, type HealthResult } from './healthcheck'
 import type { SteamData, LeagueData, SpotifyPlayback, SpotifyTrackInfo, LyricsData, GithubStats, GithubFast } from '@/types'
 
 interface Entry<T> { data: T; at: number }
@@ -169,6 +170,12 @@ export async function getCachedGithubStats(): Promise<GithubStats | null> {
     ? cachedInBackground('github-fast', githubTtlMs(), build)!
     : await cached('github-fast', githubTtlMs(), build)
   return buildGithubStats(fast, slow, new Date())
+}
+
+const HEALTH_TTL_MS = 60_000
+
+export function getCachedHealth(): Promise<HealthResult[]> {
+  return cached('health', HEALTH_TTL_MS, () => Promise.all(parseHealthTargets().map((t) => checkTarget(t))))
 }
 
 export function resetCacheForTest({ keepDisk = false } = {}) {
