@@ -1,0 +1,4 @@
+{
+  "dashboardUrl": "https://kindle.ksmkayk.com.br",
+  "reportToken": "same value as REPORT_TOKEN in the server's .env"
+}
