@@ -57,3 +57,6 @@ claude-reporter/last-run.log
 server-agent/config.json
 claude-reporter/node-path.txt
 claude-reporter/state.json.tmp
+
+# motion videos (scripts, renders, music)
+/videos/
