@@ -18,10 +18,11 @@ Check what it would send: `sudo docker compose run --rm agent node agent.mjs --o
 | `reportToken` | the dashboard's `REPORT_TOKEN` |
 | `mounts` | mount points to show, e.g. `["/", "/mnt/raid1"]` |
 | `smart` | `false` to skip SMART (e.g. on cloud VMs without real disks) |
-| `ignoreContainers` | exact container names to leave out of the report, e.g. `["icsee-vms"]` (default `[]`) |
+| `ignoreContainers` | containers to leave out of the report, by name as `docker ps` or the tab shows it (compose's `-1` dropped), e.g. `["radarr", "sonarr", "server-agent-agent"]` (default `[]`) |
 
 The container is privileged (SMART), uses the host network and PID namespace, mounts the Docker socket and
 reads the host's files through `/proc/1/root`: treat it as root on the host. The `:ro` on the socket does
 not limit the Docker API (anyone who can talk to it controls Docker). The agent itself only reads: it lists
 containers, reads `/proc`, `/sys` and `statfs`, and runs `smartctl -n standby` (no wake-ups), with SMART
-read at most every 15 minutes per disk. Logs are capped at 3 x 1 MB.
+read at most every 15 minutes per disk. A sleeping disk keeps its last reading for up to 24 h; a disk that
+answered before and stops answering shows as "sem resposta" (dark card). Logs are capped at 3 x 1 MB.

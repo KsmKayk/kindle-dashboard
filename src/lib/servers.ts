@@ -9,7 +9,7 @@ export const usedPct = (used: number, total: number) => (total > 0 ? (used / tot
 
 export const isStale = (server: StoredServer, now: number) => now - server.receivedAt > STALE_MS
 
-export const diskNeedsAttention = (d: DiskHealth) => d.healthy === false || (d.reallocated ?? 0) > 0 || (d.pending ?? 0) > 0
+export const diskNeedsAttention = (d: DiskHealth) => d.unreadable === true || d.healthy === false || (d.reallocated ?? 0) > 0 || (d.pending ?? 0) > 0
 
 export const raidNeedsAttention = (r: RaidInfo) => r.state.includes('_') || r.active < r.total || r.syncPct !== null
 
@@ -23,8 +23,10 @@ export const ramNeedsAttention = (r: ServerReport) => usedPct(r.mem.usedBytes, r
 
 export const containerDown = (c: ContainerInfo) => c.state !== 'running'
 
-// "OK 35°C", "FALHA 35°C" (failed SMART check), "40 realoc. 35°C" (passed, but bad sectors)
+// "OK 35°C", "FALHA 35°C" (failed SMART check), "40 realoc. 35°C" (passed, but bad sectors),
+// "sem resposta" (answered before, no longer does)
 export function smartLabel(d: DiskHealth): string {
+  if (d.unreadable) return 'sem resposta'
   const sectors = [d.reallocated ? `${d.reallocated} realoc.` : null, d.pending ? `${d.pending} pend.` : null]
   const health = d.healthy === false ? ['FALHA'] : sectors.some(Boolean) ? sectors : [d.healthy === null ? null : 'OK']
   return [...health, d.tempC === null ? null : `${d.tempC}°C`].filter(Boolean).join(' ')

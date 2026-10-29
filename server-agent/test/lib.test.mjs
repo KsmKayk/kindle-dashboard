@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseMdstat, parseCpu, cpuPct, parseMeminfo, parseNetDev, netRate, smartFromJson, containerFromApi, mountDevice, mountPath, listContainers, fitReport } from '../lib.mjs'
+import { parseMdstat, parseCpu, cpuPct, parseMeminfo, parseNetDev, netRate, smartFromJson, containerFromApi, mountDevice, mountPath, listContainers, fitReport, smartOutcome, nextSmart, SMART_KEEP_MS } from '../lib.mjs'
 
 const MDSTAT = `Personalities : [raid1] [raid0] [raid6] [raid5] [raid4] [raid10]
 md0 : active raid1 sdb1[2] sdc1[0]
@@ -145,4 +145,48 @@ test('listContainers leaves out ignored names', () => {
   ]
   assert.deepEqual(listContainers(api, ['n8n']).map((c) => c.name), ['jellyfin'])
   assert.equal(listContainers(api).length, 2)
+})
+
+test('smartOutcome tells a reading, a sleeping disk and a failure apart', () => {
+  const reading = {
+    smartctl: { messages: [{ string: 'CHECK POWER MODE not implemented, ignoring -n option', severity: 'information' }], exit_status: 0 },
+    smart_status: { passed: true }, temperature: { current: 37 }, ata_smart_attributes: { table: [{ id: 5, raw: { value: 0 } }] },
+  }
+  assert.deepEqual(smartOutcome('sdb', JSON.stringify(reading)), { kind: 'ok', value: { device: 'sdb', healthy: true, tempC: 37, reallocated: 0, pending: null } })
+  const standby = { smartctl: { messages: [{ string: 'Device is in STANDBY mode, exit(2)', severity: 'information' }], exit_status: 2 } }
+  assert.deepEqual(smartOutcome('sdb', JSON.stringify(standby)), { kind: 'standby' })
+  const missing = { smartctl: { messages: [{ string: 'Smartctl open device: /dev/sdz failed: No such device', severity: 'error' }], exit_status: 2 } }
+  assert.deepEqual(smartOutcome('sdz', JSON.stringify(missing)), { kind: 'failed' })
+  assert.deepEqual(smartOutcome('sdz', ''), { kind: 'failed' })
+})
+
+test('nextSmart keeps a reading only through standby, and flags a disk that stopped answering', () => {
+  const ok = { device: 'sdb', healthy: true, tempC: 37, reallocated: 0, pending: 0 }
+  const unknown = { device: 'sdb', healthy: null, tempC: null, reallocated: null, pending: null }
+  const now = 1_000_000_000
+  assert.deepEqual(nextSmart('sdb', { kind: 'ok', value: ok }, null, now), { value: ok, last: { value: ok, at: now } })
+  const last = { value: ok, at: now - 60_000 }
+  assert.deepEqual(nextSmart('sdb', { kind: 'standby' }, last, now), { value: ok, last })
+  assert.deepEqual(nextSmart('sdb', { kind: 'standby' }, { value: ok, at: now - SMART_KEEP_MS - 1 }, now).value, unknown)
+  assert.deepEqual(nextSmart('sdb', { kind: 'standby' }, null, now).value, unknown)
+  assert.deepEqual(nextSmart('sdb', { kind: 'failed' }, last, now), { value: { ...unknown, unreadable: true }, last })
+  assert.deepEqual(nextSmart('sdb', { kind: 'failed' }, null, now).value, unknown)
+})
+
+test('listContainers matches ignored names with or without the compose suffix', () => {
+  const api = [
+    { Id: 'a', Names: ['/radarr'], State: 'exited', Status: '', Ports: [] },
+    { Id: 'b', Names: ['/server-agent-agent-1'], State: 'running', Status: '', Ports: [] },
+    { Id: 'c', Names: ['/jellyfin'], State: 'running', Status: '', Ports: [] },
+  ]
+  assert.deepEqual(listContainers(api, ['radarr', 'server-agent-agent']).map((c) => c.name), ['jellyfin'])
+  assert.equal(listContainers(api, 'radarr').length, 3)
+})
+
+test('fitReport keeps unreadable only when set', () => {
+  const base = { id: 'x', name: 'x', order: 1, hostname: 'x', arch: 'x64', uptimeSec: 1, cpu: { pct: 1, cores: 1, load1: 0, tempC: null }, mem: { totalBytes: 1, usedBytes: 0 }, net: { rxBps: 0, txBps: 0 }, containers: [] }
+  const disk = { device: 'sdb', healthy: null, tempC: null, reallocated: null, pending: null }
+  const mount = (d) => ({ path: '/', device: 'sda1', totalBytes: 1, usedBytes: 0, raid: null, disks: [d] })
+  assert.equal(fitReport({ ...base, mounts: [mount({ ...disk, unreadable: true })] }).mounts[0].disks[0].unreadable, true)
+  assert.equal('unreadable' in fitReport({ ...base, mounts: [mount(disk)] }).mounts[0].disks[0], false)
 })

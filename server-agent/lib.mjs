@@ -85,16 +85,45 @@ export function smartFromJson(device, json) {
   }
 }
 
+// How long the last real SMART reading is shown while its disk sleeps
+export const SMART_KEEP_MS = 24 * 3_600_000
+
+// smartctl stdout → { kind: 'ok', value } | { kind: 'standby' } (disk asleep, -n standby) | { kind: 'failed' }
+export function smartOutcome(device, stdout) {
+  let json
+  try {
+    json = JSON.parse(stdout)
+  } catch {
+    return { kind: 'failed' }
+  }
+  const messages = (json.smartctl?.messages ?? []).map((m) => m.string ?? '')
+  if (messages.some((m) => /Device is in (STANDBY|SLEEP)/i.test(m))) return { kind: 'standby' }
+  const value = smartFromJson(device, json)
+  const answered = value.healthy !== null || value.tempC !== null || value.reallocated !== null || value.pending !== null
+  return answered ? { kind: 'ok', value } : { kind: 'failed' }
+}
+
+// What to report for a disk after a SMART read, given the last real reading
+// ({ value, at } or null): a sleeping disk keeps it for SMART_KEEP_MS; a disk
+// that answered before and now fails (or times out) is reported as unreadable.
+export function nextSmart(device, outcome, last, now) {
+  const unknown = smartFromJson(device, {})
+  if (outcome.kind === 'ok') return { value: outcome.value, last: { value: outcome.value, at: now } }
+  if (outcome.kind === 'standby') return { value: last && now - last.at < SMART_KEEP_MS ? last.value : unknown, last }
+  return { value: last ? { ...unknown, unreadable: true } : unknown, last }
+}
+
 // Docker Engine API /containers/json item → { name, state, status, ports }
 export function containerFromApi(c) {
   const ports = [...new Set((c.Ports ?? []).filter((p) => p.PublicPort).map((p) => p.PublicPort))].sort((a, b) => a - b)
   return { name: (c.Names?.[0] ?? c.Id.slice(0, 12)).replace(/^\//, ''), state: c.State, status: c.Status, ports }
 }
 
-// Docker API list → containers, without the ones named in `ignore` (exact names)
+// Docker API list → containers, without the ones named in `ignore`: exact names,
+// or the name shown on the tab (compose's -1 suffix dropped)
 export function listContainers(apiList, ignore = []) {
-  const skip = new Set(ignore)
-  return apiList.map(containerFromApi).filter((c) => !skip.has(c.name))
+  const skip = new Set(Array.isArray(ignore) ? ignore : [])
+  return apiList.map(containerFromApi).filter((c) => !skip.has(c.name) && !skip.has(c.name.replace(/-\d+$/, '')))
 }
 
 // "/mnt/raid1/" → "/mnt/raid1" (as /proc/<pid>/mounts writes it)
@@ -127,6 +156,7 @@ function fitDisk(d) {
     tempC: tempOrNull(d.tempC),
     reallocated: countOrNull(d.reallocated),
     pending: countOrNull(d.pending),
+    ...(d.unreadable === true ? { unreadable: true } : {}),
   }
 }
 

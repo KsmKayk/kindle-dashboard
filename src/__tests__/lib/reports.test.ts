@@ -66,6 +66,13 @@ describe('validation', () => {
     expect(isServerReport({ ...server, uptimeSec: -5 })).toBe(false)
     expect(isServerReport({ ...server, mem: { totalBytes: 1, usedBytes: -1 } })).toBe(false)
   })
+
+  it('accepts a disk flagged unreadable, only as a boolean', () => {
+    const withDisk = (disk: object) => ({ ...server, mounts: [{ ...server.mounts[0], disks: [disk] }] })
+    const unknown = { device: 'sdb', healthy: null, tempC: null, reallocated: null, pending: null }
+    expect(isServerReport(withDisk({ ...unknown, unreadable: true }))).toBe(true)
+    expect(isServerReport(withDisk({ ...unknown, unreadable: 'yes' }))).toBe(false)
+  })
 })
 
 describe('handleReport', () => {

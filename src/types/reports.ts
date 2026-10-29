@@ -24,6 +24,7 @@ export interface DiskHealth {
   tempC: number | null
   reallocated: number | null
   pending: number | null
+  unreadable?: boolean // answered SMART before, now fails or times out
 }
 
 export interface RaidInfo {

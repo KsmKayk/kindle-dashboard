@@ -78,7 +78,7 @@ function RaidBlock({ mount, raid, dark }: { mount: MountInfo; raid: RaidInfo; da
       <MountRow mount={mount} label={`${mount.path} · ${raid.device}`} health="" dark={dark} />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3, fontFamily: SANS, fontSize: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', flexShrink: 0 }}><Badge filled dark={dark}>{`${raid.level} · [${raid.state}]`}</Badge></div>
+          <div style={{ display: 'flex', flexShrink: 0 }}><Badge filled dark={dark}>{raid.state ? `${raid.level} · [${raid.state}]` : raid.level}</Badge></div>
           <div style={{ display: 'flex', marginLeft: 6, ...ellipsis }}>{members}</div>
         </div>
         <div style={{ display: 'flex', flexShrink: 0, marginLeft: 6, color: muted(dark) }}>

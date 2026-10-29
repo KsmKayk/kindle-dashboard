@@ -62,7 +62,8 @@ export function isClaudeReport(v: unknown): v is ClaudeReport {
 
 const isDisk = (v: unknown) =>
   isObj(v) && isStr(v.device, 40) && (v.healthy === null || typeof v.healthy === 'boolean') &&
-  isNumOrNull(v.tempC) && isNonNegOrNull(v.reallocated) && isNonNegOrNull(v.pending)
+  isNumOrNull(v.tempC) && isNonNegOrNull(v.reallocated) && isNonNegOrNull(v.pending) &&
+  (v.unreadable === undefined || typeof v.unreadable === 'boolean')
 
 const isRaid = (v: unknown) =>
   v === null || (isObj(v) && isStr(v.device, 40) && isStr(v.level, 20) && isStr(v.state, 40) &&

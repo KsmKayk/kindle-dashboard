@@ -10,7 +10,7 @@ import { request } from 'node:http'
 import { arch, cpus } from 'node:os'
 import { basename, dirname } from 'node:path'
 import { promisify } from 'node:util'
-import { cpuPct, fitReport, listContainers, mountDevice, mountPath, netRate, parseCpu, parseMdstat, parseMeminfo, parseNetDev, smartFromJson } from './lib.mjs'
+import { cpuPct, fitReport, listContainers, mountDevice, mountPath, netRate, nextSmart, parseCpu, parseMdstat, parseMeminfo, parseNetDev, smartOutcome } from './lib.mjs'
 
 const config = JSON.parse(readFileSync(new URL('./config.json', import.meta.url), 'utf8'))
 const HOST = process.env.HOST_ROOT ?? '/proc/1/root'
@@ -71,32 +71,34 @@ function physicalDisks(name) {
 const SMART_TIMEOUT_MS = 20_000
 // SMART is read again only after this long (and never wakes a sleeping disk: -n standby)
 const SMART_TTL_MS = 15 * 60_000
-const smartCache = new Map()
+const smartCache = new Map()  // disk → { value, at }: what was last reported, and when it was read
+const lastReading = new Map() // disk → { value, at }: the last real answer, and when it came
+const smartInFlight = new Map()
 
-const unknownDisk = (disk) => smartFromJson(disk, {})
-
+// → { kind: 'ok', value } | { kind: 'standby' } | { kind: 'failed' }
 async function readSmart(disk) {
-  try {
-    // smartctl exits non-zero for warnings (and for a disk in standby); its JSON is still on stdout
-    const { stdout } = await run('smartctl', ['-j', '-n', 'standby', '-H', '-A', `/dev/${disk}`], { timeout: SMART_TIMEOUT_MS, killSignal: 'SIGKILL' })
-      .catch((err) => ({ stdout: err.stdout ?? '' }))
-    return smartFromJson(disk, JSON.parse(stdout))
-  } catch {
-    return unknownDisk(disk)
-  }
+  // smartctl exits non-zero for warnings and for a disk in standby; its JSON is still on stdout
+  const { stdout } = await run('smartctl', ['-j', '-n', 'standby', '-H', '-A', `/dev/${disk}`], { timeout: SMART_TIMEOUT_MS, killSignal: 'SIGKILL' })
+    .catch((err) => ({ stdout: err.stdout ?? '' }))
+  return smartOutcome(disk, stdout)
 }
 
 async function smart(disk) {
   const saved = smartCache.get(disk)
   if (saved && Date.now() - saved.at < SMART_TTL_MS) return saved.value
+  // A smartctl still stuck from an earlier report is not started again
+  if (smartInFlight.has(disk)) return nextSmart(disk, { kind: 'failed' }, lastReading.get(disk) ?? null, Date.now()).value
+  const reading = readSmart(disk)
+    .catch(() => ({ kind: 'failed' }))
+    .finally(() => smartInFlight.delete(disk))
+  smartInFlight.set(disk, reading)
   let timer
-  const timeout = new Promise((resolve) => (timer = setTimeout(() => resolve(unknownDisk(disk)), SMART_TIMEOUT_MS + 5_000)))
-  const value = await Promise.race([readSmart(disk), timeout]).finally(() => clearTimeout(timer))
-  // A disk in standby (or a failed read) answers nothing: keep what was last known
-  const empty = value.healthy === null && value.tempC === null && value.reallocated === null && value.pending === null
-  const kept = empty && saved ? saved.value : value
-  smartCache.set(disk, { value: kept, at: Date.now() })
-  return kept
+  const timeout = new Promise((resolve) => (timer = setTimeout(() => resolve({ kind: 'failed' }), SMART_TIMEOUT_MS + 5_000)))
+  const outcome = await Promise.race([reading, timeout]).finally(() => clearTimeout(timer))
+  const { value, last } = nextSmart(disk, outcome, lastReading.get(disk) ?? null, Date.now())
+  if (last) lastReading.set(disk, last)
+  smartCache.set(disk, { value, at: Date.now() })
+  return value
 }
 
 // Docker containers; [] (and a log line) when the Docker API cannot be read
@@ -150,7 +152,7 @@ async function mountInfo(path, mountsText, arrays) {
 // CPU and network rates come from the counters' change since the previous report
 // (no waiting in between); the first report takes a 1 s sample instead.
 let previous = null
-const counters = () => ({ stat: read('/proc/stat'), net: read('/proc/net/dev'), at: Date.now() })
+const counters = () => ({ stat: read('/proc/stat'), net: read('/proc/net/dev'), at: performance.now() })
 
 async function collect() {
   if (!previous) {

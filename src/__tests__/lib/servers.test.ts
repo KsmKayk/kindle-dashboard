@@ -18,6 +18,7 @@ it('disk attention: failed SMART or bad sectors', () => {
   expect(diskNeedsAttention({ ...mount.disks[0], healthy: false })).toBe(true)
   expect(diskNeedsAttention({ ...mount.disks[0], pending: 1 })).toBe(true)
   expect(diskNeedsAttention({ device: 'sda', healthy: null, tempC: null, reallocated: null, pending: null })).toBe(false)
+  expect(diskNeedsAttention({ device: 'sda', healthy: null, tempC: null, reallocated: null, pending: null, unreadable: true })).toBe(true)
 })
 
 it('raid attention: degraded or syncing', () => {
@@ -58,4 +59,5 @@ it('smartLabel: FALHA only for a failed check, sector counts otherwise', () => {
   expect(smartLabel({ ...disk, pending: 2 })).toBe('2 pend. 35°C')
   expect(smartLabel({ ...disk, reallocated: 40, pending: 2, tempC: null })).toBe('40 realoc. 2 pend.')
   expect(smartLabel({ device: 'sda', healthy: null, tempC: null, reallocated: null, pending: null })).toBe('')
+  expect(smartLabel({ device: 'sda', healthy: null, tempC: null, reallocated: null, pending: null, unreadable: true })).toBe('sem resposta')
 })
