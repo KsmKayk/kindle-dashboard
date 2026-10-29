@@ -1,6 +1,6 @@
 --[[--
-Kindle Dashboard: Steam, League of Legends, Spotify, GitHub/Claude and server status from a kindle-dashboard
-server (https://github.com/KsmKayk/kindle-dashboard), full screen in KOReader.
+Kindle Dashboard: Steam, League of Legends, Spotify, GitHub/Claude and server status from a
+kindle-dashboard server (https://github.com/KsmKayk/kindle-dashboard), full screen in KOReader.
 
 @module koplugin.KindleDash
 --]]

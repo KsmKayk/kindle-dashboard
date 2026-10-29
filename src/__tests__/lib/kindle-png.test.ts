@@ -16,6 +16,8 @@ describe('imageSizeFrom', () => {
 })
 
 describe('pngResponse', () => {
+  afterEach(() => jest.restoreAllMocks())
+
   it('answers the PNG without caching', async () => {
     const res = await pngResponse('test', async () => Buffer.from('png'))
     expect(res.status).toBe(200)

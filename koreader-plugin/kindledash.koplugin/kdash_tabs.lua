@@ -17,7 +17,7 @@ end
 -- Width of each tab so the tabs, a gap after each one and the close button fill the bar
 function Tabs.width(bar_width, padding, gap, close_width)
     local count = #Tabs.ORDER
-    return math.floor((bar_width - 2 * padding - count * gap - close_width) / count)
+    return math.max(1, math.floor((bar_width - 2 * padding - count * gap - close_width) / count))
 end
 
 return Tabs

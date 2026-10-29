@@ -93,6 +93,9 @@ function ImageView:build()
             scale_factor = 0, -- fit, keeping the aspect ratio (1:1 when sizes match)
         })
     end
+    if self.error == "HTTP 401" then
+        return self:message(_("The server needs an access token.\nSet it in Tools → Kindle Dashboard → Access token."))
+    end
     if self.error then
         return self:message(T(_("Could not reach the server:\n%1\n\nRetrying every %2 s."), self.error, self.interval))
     end

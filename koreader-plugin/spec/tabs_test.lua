@@ -14,4 +14,5 @@ check("nothing right of the last", Tabs.neighbour("servers", 1) == nil)
 check("unknown tab", Tabs.neighbour("nope", 1) == nil)
 -- 600 px bar: 12 px padding each side, 8 px after each tab, 90 px close button
 check("tab width fills the bar", Tabs.width(600, 12, 8, 90) == 113)
+check("too-narrow bar still gives a positive width", Tabs.width(100, 12, 8, 90) == 1)
 print("tabs checks passed")

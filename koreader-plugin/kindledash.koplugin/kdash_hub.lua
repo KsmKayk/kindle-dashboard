@@ -38,6 +38,9 @@ local TAB_LABELS = {
     work = _("Work"),
     servers = _("Servers"),
 }
+for _i, name in ipairs(Tabs.ORDER) do
+    assert(TAB_LABELS[name], "kdash_hub: no label for tab " .. name)
+end
 
 local Hub = InputContainer:extend{
     name = "kindledash_hub",
@@ -61,12 +64,16 @@ function Hub:init()
     end
 
     local view_args = { hub = self, api = self.api, width = self.width, height = content_height, cache_dir = self.cache_dir }
+    -- `dashboard_interval` is a historical name: it now drives every image tab
     local interval = self.settings.dashboard_interval
+    local function image(name)
+        return ImageView.new(view_args, { path = "/api/kindle/" .. name .. ".png", file = name .. ".png", interval = interval })
+    end
     self.views = {
-        dashboard = ImageView.new(view_args, { path = "/api/kindle/dashboard.png", file = "dashboard.png", interval = interval }),
+        dashboard = image("dashboard"),
         spotify = SpotifyView.new(view_args),
-        work = ImageView.new(view_args, { path = "/api/kindle/work.png", file = "work.png", interval = interval }),
-        servers = ImageView.new(view_args, { path = "/api/kindle/servers.png", file = "servers.png", interval = interval }),
+        work = image("work"),
+        servers = image("servers"),
     }
 
     -- Fixed-size area the views draw into; its dimen is the content region to refresh
