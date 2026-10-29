@@ -1,0 +1,13 @@
+# Server agent for the dashboard's Servers tab. On each server:
+#   cp config.example.json config.json  (and edit it), then  docker compose up -d --build
+services:
+  agent:
+    build: .
+    restart: unless-stopped
+    # SMART needs raw disk access; host network/pid give the host's counters and mounts
+    privileged: true
+    network_mode: host
+    pid: host
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./config.json:/agent/config.json:ro

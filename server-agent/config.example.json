@@ -1,0 +1,10 @@
+{
+  "id": "kayk-server",
+  "name": "kayk-server",
+  "order": 2,
+  "dashboardUrl": "https://kindle.ksmkayk.com.br",
+  "reportToken": "same value as REPORT_TOKEN in the server's .env",
+  "mounts": ["/", "/mnt/raid1"],
+  "intervalSec": 60,
+  "smart": true
+}

@@ -96,3 +96,52 @@ export function mountDevice(mountsText, path) {
   }
   return device
 }
+
+// Keeps a report within the limits the dashboard validates (src/lib/reports.ts):
+// non-negative numbers, bounded strings and list sizes.
+const str = (v, max = 200) => String(v ?? '').slice(0, max)
+const count = (v) => (Number.isFinite(v) && v > 0 ? v : 0)
+const countOrNull = (v) => (v === null || v === undefined ? null : count(v))
+const tempOrNull = (v) => (Number.isFinite(v) ? v : null)
+
+function fitDisk(d) {
+  return {
+    device: str(d.device, 40),
+    healthy: typeof d.healthy === 'boolean' ? d.healthy : null,
+    tempC: tempOrNull(d.tempC),
+    reallocated: countOrNull(d.reallocated),
+    pending: countOrNull(d.pending),
+  }
+}
+
+function fitRaid(r) {
+  if (!r) return null
+  return {
+    device: str(r.device, 40), level: str(r.level, 20), state: str(r.state, 40),
+    active: count(r.active), total: count(r.total),
+    members: r.members.slice(0, 32).map((m) => str(m, 40)),
+    syncPct: countOrNull(r.syncPct),
+  }
+}
+
+export function fitReport(r) {
+  return {
+    id: r.id,
+    name: str(r.name, 60),
+    order: Number.isFinite(r.order) ? r.order : 100,
+    hostname: str(r.hostname),
+    arch: str(r.arch, 20),
+    uptimeSec: Math.round(count(r.uptimeSec)),
+    cpu: { pct: count(r.cpu.pct), cores: count(r.cpu.cores), load1: count(r.cpu.load1), tempC: tempOrNull(r.cpu.tempC) },
+    mem: { totalBytes: count(r.mem.totalBytes), usedBytes: count(r.mem.usedBytes) },
+    net: { rxBps: count(r.net.rxBps), txBps: count(r.net.txBps) },
+    mounts: r.mounts.slice(0, 16).map((m) => ({
+      path: str(m.path), device: str(m.device, 80),
+      totalBytes: count(m.totalBytes), usedBytes: count(m.usedBytes),
+      raid: fitRaid(m.raid), disks: m.disks.slice(0, 32).map(fitDisk),
+    })),
+    containers: r.containers.slice(0, 100).map((c) => ({
+      name: str(c.name), state: str(c.state, 40), status: str(c.status), ports: c.ports.filter((p) => count(p) > 0).slice(0, 64),
+    })),
+  }
+}

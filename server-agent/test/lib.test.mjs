@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseMdstat, parseCpu, cpuPct, parseMeminfo, parseNetDev, netRate, smartFromJson, containerFromApi, mountDevice } from '../lib.mjs'
+import { parseMdstat, parseCpu, cpuPct, parseMeminfo, parseNetDev, netRate, smartFromJson, containerFromApi, mountDevice, fitReport } from '../lib.mjs'
 
 const MDSTAT = `Personalities : [raid1] [raid0] [raid6] [raid5] [raid4] [raid10]
 md0 : active raid1 sdb1[2] sdc1[0]
@@ -74,4 +74,34 @@ test('mountDevice finds the device of a mount point', () => {
   assert.equal(mountDevice(mounts, '/mnt/raid1'), '/dev/md0')
   assert.equal(mountDevice(mounts, '/'), '/dev/mapper/ubuntu--vg-ubuntu--lv')
   assert.equal(mountDevice(mounts, '/nope'), null)
+})
+
+test('fitReport keeps a report within what the dashboard accepts', () => {
+  const long = 'x'.repeat(300)
+  const container = { name: long, state: 'running', status: long, ports: Array.from({ length: 70 }, (_, i) => i + 1) }
+  const report = {
+    id: 'kayk-server', name: long, order: 2, hostname: long, arch: 'x64', uptimeSec: 12.6,
+    cpu: { pct: -0.1, cores: 4, load1: 0.5, tempC: 41 },
+    mem: { totalBytes: 100, usedBytes: -5 },
+    net: { rxBps: 10, txBps: 5 },
+    mounts: Array.from({ length: 20 }, () => ({
+      path: '/', device: 'dm-0', totalBytes: 100, usedBytes: 20,
+      raid: { device: 'md0', level: 'RAID 1', state: 'UU', active: 2, total: 2, members: Array.from({ length: 40 }, (_, i) => `sd${i}`), syncPct: null },
+      disks: [{ device: 'sdb', healthy: true, tempC: 35, reallocated: -1, pending: 0 }],
+    })),
+    containers: Array.from({ length: 120 }, () => container),
+  }
+  const fit = fitReport(report)
+  assert.equal(fit.name.length, 60)
+  assert.equal(fit.hostname.length, 200)
+  assert.equal(fit.uptimeSec, 13)
+  assert.equal(fit.cpu.pct, 0)
+  assert.equal(fit.mem.usedBytes, 0)
+  assert.equal(fit.mounts.length, 16)
+  assert.equal(fit.mounts[0].raid.members.length, 32)
+  assert.equal(fit.mounts[0].disks[0].reallocated, 0)
+  assert.equal(fit.containers.length, 100)
+  assert.equal(fit.containers[0].name.length, 200)
+  assert.equal(fit.containers[0].ports.length, 64)
+  assert.equal(fitReport({ ...report, mounts: [{ ...report.mounts[0], raid: null }] }).mounts[0].raid, null)
 })
