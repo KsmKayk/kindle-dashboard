@@ -3,7 +3,9 @@ import { join } from 'path'
 import { buildSteamData } from './steam'
 import { buildLeagueData } from './league'
 import { getAccessToken, getCurrentlyPlaying, getLyrics } from './spotify'
-import type { SteamData, LeagueData, SpotifyPlayback, SpotifyTrackInfo, LyricsData } from '@/types'
+import { fetchGithubFast, fetchGithubSlow } from './github'
+import { buildGithubStats } from './github-stats'
+import type { SteamData, LeagueData, SpotifyPlayback, SpotifyTrackInfo, LyricsData, GithubStats } from '@/types'
 
 interface Entry<T> { data: T; at: number }
 
@@ -86,6 +88,27 @@ function savedEntry<T>(key: string): Entry<T> | undefined {
   return memory.get(key) as Entry<T> | undefined
 }
 
+// Plain saved values (the reports pushed by claude-reporter/ and server-agent/)
+export function saveEntry<T>(key: string, data: T) {
+  const entry = { data, at: Date.now() }
+  memory.set(key, entry)
+  writeDisk(key, entry)
+}
+
+export function loadEntry<T>(key: string): Entry<T> | null {
+  return savedEntry<T>(key) ?? null
+}
+
+// For slow builds: answers at once with what is saved (null before the first
+// success) and refreshes in the background when that is older than ttlMs.
+function cachedInBackground<T>(key: string, ttlMs: number, build: () => Promise<T>): T | null {
+  const entry = savedEntry<T>(key)
+  if (!entry || Date.now() - entry.at >= ttlMs) {
+    cached(key, ttlMs, build).catch((err) => console.error(`[server-cache] ${key} background refresh failed`, err))
+  }
+  return entry?.data ?? null
+}
+
 // The current track, or the last one played (isPlaying: false) when nothing is
 // playing or Spotify is unreachable. Not TTL-cached: it should change with the track.
 export async function getSpotifyNowOrLast(): Promise<SpotifyPlayback | null> {
@@ -125,6 +148,18 @@ export function getCachedSteamData(): Promise<SteamData> {
 
 export function getCachedLeagueData(): Promise<LeagueData> {
   return cached('league', leagueTtlMs(), buildLeagueData)
+}
+
+function githubTtlMs() { return parseInt(process.env.GITHUB_UPDATE_RATE ?? '600', 10) * 1000 }
+const GITHUB_SLOW_TTL_MS = 3_600_000
+
+// null when GITHUB_TOKEN is not set. The 12-month figures fill in once their
+// background load finishes (about a minute after the first request).
+export async function getCachedGithubStats(): Promise<GithubStats | null> {
+  if (!process.env.GITHUB_TOKEN) return null
+  const slow = cachedInBackground('github-slow', GITHUB_SLOW_TTL_MS, () => fetchGithubSlow())
+  const fast = await cached('github-fast', githubTtlMs(), () => fetchGithubFast())
+  return buildGithubStats(fast, slow, new Date())
 }
 
 export function resetCacheForTest({ keepDisk = false } = {}) {
