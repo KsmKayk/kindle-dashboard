@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:reporters": "node --test claude-reporter/test/lib.test.mjs"
+    "test:reporters": "node --test claude-reporter/test/lib.test.mjs server-agent/test/lib.test.mjs"
   },
   "dependencies": {
     "next": "16.2.6",
