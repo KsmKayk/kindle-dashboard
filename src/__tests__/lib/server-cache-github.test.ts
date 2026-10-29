@@ -59,3 +59,16 @@ it('saves and loads plain entries', () => {
   resetCacheForTest({ keepDisk: true })
   expect(loadEntry<{ a: number }>('report-x')?.data).toEqual({ a: 1 })
 })
+
+it('does not retry or log the 12-month failure on every request during the cooldown', async () => {
+  const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {})
+  mockSlow.mockRejectedValue(new Error('boom'))
+  await getCachedGithubStats()
+  await new Promise((resolve) => setImmediate(resolve))
+  const logged = errorLog.mock.calls.length
+  await getCachedGithubStats()
+  await new Promise((resolve) => setImmediate(resolve))
+  expect(mockSlow).toHaveBeenCalledTimes(1)
+  expect(errorLog.mock.calls.length).toBe(logged)
+  errorLog.mockRestore()
+})

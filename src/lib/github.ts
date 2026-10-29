@@ -15,9 +15,23 @@ function headers(): Record<string, string> {
   return { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
 }
 
-async function rest<T>(path: string): Promise<T> {
+// Every /search/* call goes through this gate, shared by the fast and slow loads:
+// it starts at least `gapMs` after the previous search call started.
+let nextSearchAt = 0
+async function searchSlot(gapMs: number): Promise<void> {
+  const wait = Math.max(0, nextSearchAt - Date.now())
+  nextSearchAt = Date.now() + wait + gapMs
+  if (wait > 0) await sleep(wait)
+}
+
+async function rest<T>(path: string, gapMs = SEARCH_GAP_MS): Promise<T> {
+  if (path.startsWith('/search/')) await searchSlot(gapMs)
   const res = await fetch(`${API}${path}`, { headers: headers(), cache: 'no-store' })
-  if (!res.ok) throw new Error(`GitHub ${res.status} on ${path}`)
+  if (!res.ok) {
+    const remaining = res.headers.get('x-ratelimit-remaining')
+    const retryAfter = res.headers.get('retry-after')
+    throw new Error(`GitHub ${res.status} on ${path} (ratelimit-remaining: ${remaining ?? 'n/a'}, retry-after: ${retryAfter ?? 'n/a'})`)
+  }
   return res.json() as Promise<T>
 }
 
@@ -30,7 +44,9 @@ async function graphql<T>(query: string, variables: Record<string, unknown>): Pr
   })
   if (!res.ok) throw new Error(`GitHub GraphQL ${res.status}`)
   const body = (await res.json()) as { data?: T; errors?: { message: string }[] }
-  if (body.errors?.length || !body.data) throw new Error(`GitHub GraphQL: ${body.errors?.[0]?.message ?? 'no data'}`)
+  if (!body.data) throw new Error(`GitHub GraphQL: ${body.errors?.[0]?.message ?? 'no data'}`)
+  // Partial results (e.g. a SAML-protected org) still carry data: use it
+  if (body.errors?.length) console.error(`[github] GraphQL partial result: ${body.errors[0].message}`)
   return body.data
 }
 
@@ -38,11 +54,14 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 // Search qualifier datetime: 2026-10-26T03:00:00+00:00
 const searchTime = (d: Date) => `${d.toISOString().slice(0, 19)}+00:00`
 
-let login: string | null = null
+let loginPromise: Promise<string> | null = null
 
-async function viewerLogin(): Promise<string> {
-  login ??= (await graphql<{ viewer: { login: string } }>('query { viewer { login } }', {})).viewer.login
-  return login
+// The promise is cached, so concurrent cold-start calls share one request
+function viewerLogin(): Promise<string> {
+  loginPromise ??= graphql<{ viewer: { login: string } }>('query { viewer { login } }', {})
+    .then((data) => data.viewer.login)
+    .catch((err) => { loginPromise = null; throw err })
+  return loginPromise
 }
 
 async function searchCount(q: string): Promise<number> {
@@ -56,8 +75,7 @@ interface CommitItem { sha: string; repository: { full_name: string }; commit: {
 export async function searchCommits(q: string, gapMs = SEARCH_GAP_MS): Promise<GithubCommit[]> {
   const commits: GithubCommit[] = []
   for (let page = 1; page <= 10; page++) {
-    if (page > 1) await sleep(gapMs)
-    const body = await rest<{ items: CommitItem[] }>(`/search/commits?q=${encodeURIComponent(q)}&per_page=100&page=${page}`)
+    const body = await rest<{ items: CommitItem[] }>(`/search/commits?q=${encodeURIComponent(q)}&per_page=100&page=${page}`, gapMs)
     commits.push(...body.items.map((item) => ({ sha: item.sha, repo: item.repository.full_name, date: item.commit.author.date })))
     if (body.items.length < 100) break
   }
@@ -71,7 +89,7 @@ interface PrNode {
   createdAt: string
   author: { login: string } | null
   repository: { nameWithOwner: string }
-  reviews: { totalCount: number }
+  latestOpinionatedReviews: { nodes: { state: string }[] }
   commits: { nodes: { commit: { statusCheckRollup: { state: string } | null } }[] }
 }
 
@@ -80,7 +98,7 @@ const PR_FIELDS = `
     id number title createdAt
     author { login }
     repository { nameWithOwner }
-    reviews(states: APPROVED) { totalCount }
+    latestOpinionatedReviews(first: 20) { nodes { state } }
     commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }
   }`
 
@@ -99,7 +117,7 @@ export function toPr(node: PrNode): GithubPr {
     author: node.author?.login ?? 'ghost',
     createdAt: node.createdAt,
     ci: ciState(node.commits.nodes[0]?.commit.statusCheckRollup?.state),
-    approvals: node.reviews.totalCount,
+    approvals: node.latestOpinionatedReviews.nodes.filter((r) => r.state === 'APPROVED').length,
   }
 }
 
@@ -108,7 +126,8 @@ async function searchPrs(q: string): Promise<GithubPr[]> {
     `query($q: String!, $first: Int!) { search(query: $q, type: ISSUE, first: $first) { nodes { ${PR_FIELDS} } } }`,
     { q, first: LIST_SIZE }
   )
-  return data.search.nodes.map(toPr)
+  // Nodes the token cannot read come back null
+  return data.search.nodes.filter(Boolean).map(toPr)
 }
 
 // The user's reviews on other people's PRs updated since `start` (a PR reviewed
@@ -118,7 +137,7 @@ async function searchReviews(user: string, start: Date): Promise<GithubReview[]>
   const reviews: GithubReview[] = []
   let after: string | null = null
   do {
-    const data: { search: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: { id?: string; reviews?: { nodes: { submittedAt: string | null }[] } }[] } } = await graphql(
+    const data: { search: { pageInfo: { hasNextPage: boolean; endCursor: string }; nodes: ({ id?: string; reviews?: { nodes: { submittedAt: string | null }[] } } | null)[] } } = await graphql(
       `query($q: String!, $user: String!, $after: String) {
         search(query: $q, type: ISSUE, first: 100, after: $after) {
           pageInfo { hasNextPage endCursor }
@@ -128,8 +147,8 @@ async function searchReviews(user: string, start: Date): Promise<GithubReview[]>
       { q, user, after }
     )
     for (const pr of data.search.nodes) {
-      for (const review of pr.reviews?.nodes ?? []) {
-        if (pr.id && review.submittedAt) reviews.push({ pr: pr.id, submittedAt: review.submittedAt })
+      for (const review of pr?.reviews?.nodes ?? []) {
+        if (pr?.id && review.submittedAt) reviews.push({ pr: pr.id, submittedAt: review.submittedAt })
       }
     }
     after = data.search.pageInfo.hasNextPage ? data.search.pageInfo.endCursor : null
@@ -138,11 +157,11 @@ async function searchReviews(user: string, start: Date): Promise<GithubReview[]>
 }
 
 async function searchMerged(user: string, start: Date): Promise<GithubMergedPr[]> {
-  const data = await graphql<{ search: { nodes: Partial<GithubMergedPr>[] } }>(
+  const data = await graphql<{ search: { nodes: (Partial<GithubMergedPr> | null)[] } }>(
     `query($q: String!) { search(query: $q, type: ISSUE, first: 100) { nodes { ... on PullRequest { createdAt mergedAt additions deletions } } } }`,
     { q: `is:pr author:${user} is:merged merged:>=${localDay(start)}` }
   )
-  return data.search.nodes.filter((n): n is GithubMergedPr => typeof n.mergedAt === 'string')
+  return data.search.nodes.filter((n): n is GithubMergedPr => typeof n?.mergedAt === 'string')
 }
 
 interface RunItem { status: string; conclusion: string | null; created_at: string; updated_at: string }
@@ -150,6 +169,8 @@ interface RunItem { status: string; conclusion: string | null; created_at: strin
 export function toDeploy(repo: string, run: RunItem | undefined): GithubDeploy {
   if (!run) return { repo, state: null, at: null }
   if (run.status !== 'completed') return { repo, state: 'running', at: run.created_at }
+  // Skipped or neutral runs say nothing about the deploy
+  if (run.conclusion === 'skipped' || run.conclusion === 'neutral') return { repo, state: null, at: null }
   return { repo, state: run.conclusion === 'success' ? 'success' : 'failure', at: run.updated_at }
 }
 
@@ -172,12 +193,15 @@ export async function fetchGithubFast(now = new Date()): Promise<GithubFast> {
   const [prsOpenedWeek, prsOpenedMonth, commits, reviews, merged, openPrs, reviewQueue, deploys] = await Promise.all([
     searchCount(`is:pr author:${user} created:>=${searchTime(p.week)}`),
     searchCount(`is:pr author:${user} created:>=${searchTime(p.month)}`),
-    searchCommits(`author:${user} committer-date:>=${localDay(recent)}`),
+    searchCommits(`author:${user} author-date:>=${localDay(recent)}`),
     searchReviews(user, recent),
     searchMerged(user, new Date(now.getTime() - 31 * 86_400_000)),
-    searchPrs(`is:pr is:open author:${user} archived:false sort:updated-desc`),
-    searchPrs(`is:pr is:open review-requested:${user} archived:false sort:updated-desc`),
-    Promise.all(deployRepos().map(latestDeploy)),
+    searchPrs(`is:pr is:open author:${user} archived:false sort:updated-desc`).catch((err) => { console.error('[github] open PRs', err); return [] }),
+    searchPrs(`is:pr is:open review-requested:${user} archived:false sort:updated-desc`).catch((err) => { console.error('[github] review queue', err); return [] }),
+    Promise.all(deployRepos().map((repo) => latestDeploy(repo).catch((err): GithubDeploy => {
+      console.error(`[github] deploy ${repo}`, err)
+      return { repo, state: null, at: null }
+    }))),
   ])
   return { login: user, prsOpenedWeek, prsOpenedMonth, commits, reviews, merged, openPrs, reviewQueue, deploys }
 }
@@ -189,8 +213,7 @@ export async function fetchGithubSlow(now = new Date()): Promise<GithubSlow> {
   const prsOpenedYear = await searchCount(`is:pr author:${user} created:>=${searchTime(year)}`)
   const commits: GithubCommit[] = []
   for (const [from, to] of monthWindows(now, 13)) {
-    await sleep(SEARCH_GAP_MS)
-    commits.push(...(await searchCommits(`author:${user} committer-date:${from}..${to}`)))
+    commits.push(...(await searchCommits(`author:${user} author-date:${from}..${to}`)))
   }
   const reviews = await searchReviews(user, year)
   return { prsOpenedYear, commits: commits.filter((c) => new Date(c.date) >= year), reviews }

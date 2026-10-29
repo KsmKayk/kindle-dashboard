@@ -49,7 +49,7 @@ export interface GithubStats {
   prsOpened: PeriodCounts
   prsReviewed: PeriodCounts
   commits: { week: number; month: number; weekly: number[] }  // weekly: 12 weeks, oldest first
-  streak: number
+  streak: number | null  // null until the 12-month data is loaded
   topRepo: { year: RepoCount | null; month: RepoCount | null }
   mergeHours: number | null
   lines: { added: number; removed: number }

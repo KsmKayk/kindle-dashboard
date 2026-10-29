@@ -102,6 +102,7 @@ describe('buildGithubStats', () => {
     const stats = buildGithubStats(fast, null, now)
     expect(stats.prsOpened.avgMonth).toBeNull()
     expect(stats.prsReviewed.avgMonth).toBeNull()
+    expect(stats.streak).toBeNull()
     expect(stats.topRepo.year).toBeNull()
     expect(stats.commits.month).toBe(2)
   })

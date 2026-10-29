@@ -8,11 +8,13 @@ it('compactNumber', () => {
   expect(compactNumber(8_240_000)).toBe('8.2M')
   expect(compactNumber(41_400_000)).toBe('41M')
   expect(compactNumber(1_630_000_000)).toBe('1.6B')
+  expect(compactNumber(999_950)).toBe('1M')
 })
 
 it('ageLabel', () => {
   expect(ageLabel(new Date(2026, 9, 29, 14, 28), now)).toBe('2min')
   expect(ageLabel(new Date(2026, 9, 29, 9, 30).getTime(), now)).toBe('5h')
+  expect(ageLabel(now.getTime() - 59.6 * 60_000, now)).toBe('59min')
   expect(ageLabel(new Date(2026, 9, 27, 14, 30).toISOString(), now)).toBe('2d')
 })
 
@@ -37,6 +39,7 @@ it('bytesLabel', () => {
   expect(bytesLabel(5.6 * 1024 ** 3)).toBe('5.6 GB')
   expect(bytesLabel(339 * 1024 ** 3)).toBe('339 GB')
   expect(bytesLabel(1.82 * 1024 ** 4)).toBe('1.8 TB')
+  expect(bytesLabel(1024 ** 3 - 1)).toBe('1 GB')
 })
 
 it('rateLabel and uptimeLabel', () => {

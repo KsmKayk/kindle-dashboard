@@ -14,16 +14,21 @@ function short(v: number): string {
 }
 
 export function compactNumber(n: number): string {
-  if (n >= 1e9) return `${short(n / 1e9)}B`
-  if (n >= 1e6) return `${short(n / 1e6)}M`
-  if (n >= 1e3) return `${short(n / 1e3)}k`
+  const units: [number, string][] = [[1e9, 'B'], [1e6, 'M'], [1e3, 'k']]
+  for (const [i, [size, unit]] of units.entries()) {
+    if (n < size) continue
+    const label = short(n / size)
+    // Rounding can reach the next unit (999_950 -> 1000k): show it as 1M
+    if (label === '1000' && i > 0) return `1${units[i - 1][1]}`
+    return `${label}${unit}`
+  }
   return String(Math.round(n))
 }
 
 // How long ago: 2min, 5h, 2d
 export function ageLabel(from: Date | string | number, now: Date): string {
   const ms = Math.max(0, now.getTime() - toMs(from))
-  if (ms < HOUR_MS) return `${Math.round(ms / MINUTE_MS)}min`
+  if (ms < HOUR_MS) return `${Math.floor(ms / MINUTE_MS)}min`
   if (ms < DAY_MS) return `${Math.floor(ms / HOUR_MS)}h`
   return `${Math.floor(ms / DAY_MS)}d`
 }
@@ -54,7 +59,13 @@ export function durationLabel(hours: number): string {
 
 export function bytesLabel(bytes: number): string {
   const units: [number, string][] = [[1024 ** 4, 'TB'], [1024 ** 3, 'GB'], [1024 ** 2, 'MB']]
-  for (const [size, unit] of units) if (bytes >= size) return `${short(bytes / size)} ${unit}`
+  for (const [i, [size, unit]] of units.entries()) {
+    if (bytes < size) continue
+    const label = short(bytes / size)
+    // Rounding can reach the next unit (1023.9 MB -> 1024): show it as 1 GB
+    if (label === '1024' && i > 0) return `1 ${units[i - 1][1]}`
+    return `${label} ${unit}`
+  }
   return `${Math.round(bytes / 1024)} KB`
 }
 

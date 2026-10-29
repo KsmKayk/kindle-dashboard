@@ -85,7 +85,7 @@ export function buildGithubStats(fast: GithubFast, slow: GithubSlow | null, now:
       month: dates.filter((d) => since(d, p.month)).length,
       weekly: weeklyCounts(dates, p.week),
     },
-    streak: commitStreak(dates, now),
+    streak: slow ? commitStreak(dates, now) : null,
     topRepo: { year: slow ? topRepo(commits, p.year) : null, month: topRepo(commits, p.month) },
     mergeHours: medianMergeHours(fast.merged, new Date(now.getTime() - 30 * DAY_MS)),
     lines: {

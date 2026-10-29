@@ -103,7 +103,9 @@ export function loadEntry<T>(key: string): Entry<T> | null {
 // success) and refreshes in the background when that is older than ttlMs.
 function cachedInBackground<T>(key: string, ttlMs: number, build: () => Promise<T>): T | null {
   const entry = savedEntry<T>(key)
-  if (!entry || Date.now() - entry.at >= ttlMs) {
+  const failure = lastFailure.get(key)
+  const coolingDown = failure && Date.now() - failure.at < FAILURE_COOLDOWN_MS
+  if (!coolingDown && (!entry || Date.now() - entry.at >= ttlMs)) {
     cached(key, ttlMs, build).catch((err) => console.error(`[server-cache] ${key} background refresh failed`, err))
   }
   return entry?.data ?? null
