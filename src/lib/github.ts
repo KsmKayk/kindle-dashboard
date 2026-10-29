@@ -5,8 +5,8 @@ import type { CiState, GithubCommit, GithubDeploy, GithubFast, GithubMergedPr, G
 // classic PAT with `repo`). Search covers the user's org repos too.
 
 const API = 'https://api.github.com'
-// Search allows 30 requests per minute; the 12-month load spaces its requests out
-const SEARCH_GAP_MS = 2_500
+// Search allows 30 requests per minute, and commit search has a secondary limit; every search is spaced out
+const SEARCH_GAP_MS = 3_000
 const LIST_SIZE = 3
 
 function headers(): Record<string, string> {
@@ -24,15 +24,38 @@ async function searchSlot(gapMs: number): Promise<void> {
   if (wait > 0) await sleep(wait)
 }
 
+const SEARCH_RETRIES = 3
+const DEFAULT_BACKOFF_MS = 60_000
+
+// How long to wait after a rate-limit response: retry-after, else until the
+// limit resets when none is left, else a minute
+function backoffMs(res: Response): number {
+  const retryAfter = res.headers.get('retry-after')
+  if (retryAfter !== null && retryAfter !== '' && !Number.isNaN(Number(retryAfter))) return Number(retryAfter) * 1000
+  const reset = res.headers.get('x-ratelimit-reset')
+  if (res.headers.get('x-ratelimit-remaining') === '0' && reset !== null && !Number.isNaN(Number(reset))) {
+    return Math.max(0, Number(reset) * 1000 - Date.now())
+  }
+  return DEFAULT_BACKOFF_MS
+}
+
 async function rest<T>(path: string, gapMs = SEARCH_GAP_MS): Promise<T> {
-  if (path.startsWith('/search/')) await searchSlot(gapMs)
-  const res = await fetch(`${API}${path}`, { headers: headers(), cache: 'no-store' })
-  if (!res.ok) {
+  const isSearch = path.startsWith('/search/')
+  for (let attempt = 0; ; attempt++) {
+    if (isSearch) await searchSlot(gapMs)
+    const res = await fetch(`${API}${path}`, { headers: headers(), cache: 'no-store' })
+    if (res.ok) return res.json() as Promise<T>
+    // Search has a secondary rate limit: wait it out and retry
+    if (isSearch && (res.status === 403 || res.status === 429) && attempt < SEARCH_RETRIES) {
+      const wait = backoffMs(res)
+      console.error(`[github] ${res.status} on ${path}, retrying in ${Math.round(wait / 1000)}s`)
+      await sleep(wait)
+      continue
+    }
     const remaining = res.headers.get('x-ratelimit-remaining')
     const retryAfter = res.headers.get('retry-after')
     throw new Error(`GitHub ${res.status} on ${path} (ratelimit-remaining: ${remaining ?? 'n/a'}, retry-after: ${retryAfter ?? 'n/a'})`)
   }
-  return res.json() as Promise<T>
 }
 
 async function graphql<T>(query: string, variables: Record<string, unknown>): Promise<T> {

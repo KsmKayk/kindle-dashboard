@@ -83,3 +83,26 @@ describe('fetchGithubFast resilience', () => {
     expect(fast.deploys).toEqual([{ repo: 'a/broken', state: null, at: null }])
   }, 30_000)
 })
+
+describe('search rate limit', () => {
+  const ok = () => new Response(JSON.stringify({ items: [] }), { status: 200 })
+  beforeEach(() => {
+    process.env.GITHUB_TOKEN = 't'
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+  })
+  afterEach(() => jest.restoreAllMocks())
+
+  it('retries a 403 after retry-after and succeeds', async () => {
+    const responses = [new Response('{}', { status: 403, headers: { 'retry-after': '0' } }), ok()]
+    const fetchMock = jest.spyOn(global, 'fetch').mockImplementation(async () => responses.shift()!)
+    await expect(searchCommits('author:me', 0)).resolves.toEqual([])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('gives up after 3 retries', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockImplementation(async () =>
+      new Response('{}', { status: 429, headers: { 'retry-after': '0' } }))
+    await expect(searchCommits('author:me', 0)).rejects.toThrow('GitHub 429')
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+  })
+})
