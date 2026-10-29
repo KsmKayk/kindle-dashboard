@@ -33,7 +33,10 @@ describe('proxy', () => {
   beforeEach(() => { process.env.KINDLE_API_TOKEN = 's3cret' })
   afterEach(() => { delete process.env.KINDLE_API_TOKEN })
 
-  it('only guards the Spotify routes', () => {
+  it('guards the Spotify routes and the Work/Servers images', () => {
+    expect(config.matcher).toContain('/api/kindle/work.png')
+    expect(config.matcher).toContain('/api/kindle/servers.png')
+    expect(config.matcher).not.toContain('/api/kindle/dashboard.png')
     expect(config.matcher).toContain('/api/spotify/control')
     expect(config.matcher).toContain('/kindle/spotify')
     expect(config.matcher).not.toContain('/api/spotify/callback')

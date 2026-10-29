@@ -35,7 +35,7 @@ export function proxy(request: NextRequest) {
   return response
 }
 
-// The Spotify API, the players and the OAuth start. The OAuth callback stays open:
+// The Spotify API, the players, the Work and Servers images and the OAuth start. The OAuth callback stays open:
 // Spotify redirects to it, and it only works with a code from /api/spotify/auth.
 // (Must be a literal: Next reads it at build time.)
 export const config = {
@@ -47,5 +47,7 @@ export const config = {
     '/spotify',
     '/kindle/spotify',
     '/kindle/spotify/control',
+    '/api/kindle/work.png',
+    '/api/kindle/servers.png',
   ],
 }
