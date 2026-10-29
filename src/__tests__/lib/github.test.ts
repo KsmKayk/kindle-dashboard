@@ -119,6 +119,14 @@ describe('search rate limit', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('retries a 403 whose body names the secondary rate limit', async () => {
+    const responses = [new Response('{"message":"You have exceeded a secondary rate limit."}', { status: 403 }), ok()]
+    const fetchMock = jest.spyOn(global, 'fetch').mockImplementation(async () => responses.shift()!)
+    jest.spyOn(global, 'setTimeout').mockImplementation(((fn: () => void) => { fn(); return 0 }) as unknown as typeof setTimeout)
+    await expect(searchCommits('author:me', 0, 3)).resolves.toEqual([])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
   it('caps the wait', () => {
     expect(backoffMs(new Response('{}', { status: 403, headers: { 'retry-after': '600' } }))).toBe(MAX_BACKOFF_MS)
     expect(backoffMs(new Response('{}', { status: 403, headers: { 'retry-after': '5' } }))).toBe(5000)

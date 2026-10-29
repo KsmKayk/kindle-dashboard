@@ -30,8 +30,11 @@ export const MAX_BACKOFF_MS = 90_000
 const SLOW_SEARCH_RETRIES = 3
 
 // A 403/429 is a rate limit (not a scope or SAML refusal) when GitHub says so
-function isRateLimit(res: Response): boolean {
-  return res.status === 429 || res.headers.has('retry-after') || res.headers.get('x-ratelimit-remaining') === '0'
+// (the secondary limit often comes with no rate-limit headers, only a message in the body)
+async function isRateLimit(res: Response): Promise<boolean> {
+  if (res.status === 429 || res.headers.has('retry-after') || res.headers.get('x-ratelimit-remaining') === '0') return true
+  const body = await res.clone().text().catch(() => '')
+  return /rate limit|abuse/i.test(body)
 }
 
 // How long to wait after a rate-limit response (retry-after, else until the
@@ -54,7 +57,7 @@ async function rest<T>(path: string, gapMs = SEARCH_GAP_MS, retries = 0): Promis
     const res = await fetch(`${API}${path}`, { headers: headers(), cache: 'no-store' })
     if (res.ok) return res.json() as Promise<T>
     // Search has a secondary rate limit: wait it out (every search waits with us) and retry
-    if (isSearch && (res.status === 403 || res.status === 429) && isRateLimit(res) && attempt < retries) {
+    if (isSearch && (res.status === 403 || res.status === 429) && attempt < retries && (await isRateLimit(res))) {
       const wait = backoffMs(res)
       nextSearchAt = Math.max(nextSearchAt, Date.now() + wait)
       console.error(`[github] ${res.status} on ${path}, retrying in ${Math.round(wait / 1000)}s`)
