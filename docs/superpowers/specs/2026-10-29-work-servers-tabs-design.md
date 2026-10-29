@@ -143,16 +143,18 @@ Displayed on the Work tab:
   arm64 and x86_64), `compose.yaml`, `config.example.json`. Installed on each server with
   `docker compose up -d --build` from a checkout of this repo.
 - Container: `privileged: true` (SMART needs raw device access), `network_mode: host` (host network
-  counters; Oracle reaches the dashboard on `localhost`), `pid: host`, `/var/run/docker.sock` mounted
-  read-only, host `/` mounted read-only at `/host`. Does not depend on the user being in the `docker`
+  counters; Oracle reaches the dashboard on `localhost`), `pid: host`, `/var/run/docker.sock` mounted.
+  Host files are read through `/proc/1/root` (the host init's root, visible with `pid: host`), not a bind
+  mount of `/`: under snap Docker (Oracle) such a mount shows the snap's own tree. Root-equivalent on the host. Does not depend on the user being in the `docker`
   group.
 - Config (`config.json`, git-ignored): `id`, display `name`, dashboard URL, `REPORT_TOKEN`, `mounts`
   (host paths to report, e.g. `["/", "/mnt/raid1"]`), interval (default 60 s).
 - Every interval it collects and sends `POST /api/servers/report`:
-  - **System:** hostname, arch, uptime, CPU % (from two `/proc/stat` samples), load, core count, RAM
+  - **System:** hostname, arch, uptime, CPU % (from the `/proc/stat` change since the previous report), load, core count, RAM
     total/used (`MemTotal − MemAvailable`), CPU temperature (`/sys/class/hwmon`, `/sys/class/thermal`,
     omitted when absent), network rx/tx bytes per second (sum of non-loopback, non-virtual interfaces).
-  - **Disks:** for each configured mount: used/total (`statfs` on `/host<mount>`), the backing device
+  - **Disks:** for each configured mount: used/total (`statfs` on `/proc/1/root<mount>`; a configured mount
+    that is not mounted is reported with device `?` and shown as "não montado"), the backing device
     and, for md devices, the RAID info below.
   - **RAID:** parsed from `/proc/mdstat`: device, level, `[UU]` state, member disks, active/total count,
     resync/recovery progress when present.

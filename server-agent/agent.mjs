@@ -10,7 +10,7 @@ import { request } from 'node:http'
 import { arch, cpus } from 'node:os'
 import { basename, dirname } from 'node:path'
 import { promisify } from 'node:util'
-import { containerFromApi, cpuPct, fitReport, mountDevice, netRate, parseCpu, parseMdstat, parseMeminfo, parseNetDev, smartFromJson } from './lib.mjs'
+import { cpuPct, fitReport, listContainers, mountDevice, mountPath, netRate, parseCpu, parseMdstat, parseMeminfo, parseNetDev, smartFromJson } from './lib.mjs'
 
 const config = JSON.parse(readFileSync(new URL('./config.json', import.meta.url), 'utf8'))
 const HOST = process.env.HOST_ROOT ?? '/proc/1/root'
@@ -21,6 +21,8 @@ const CPU_SENSORS = ['coretemp', 'k10temp', 'zenpower', 'cpu_thermal', 'soc_ther
 const run = promisify(execFile)
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const read = (path) => readFileSync(path, 'utf8')
+// Errors only (stderr): the agent is silent while reports go through
+const log = (message) => console.error(new Date().toISOString(), message)
 
 function tryRead(path) {
   try {
@@ -65,39 +67,76 @@ function physicalDisks(name) {
   return existsSync(`/sys/class/block/${name}`) ? [name] : []
 }
 
-async function smart(disk) {
+// smartctl can hang on a failing disk: kill it, and never wait longer than this
+const SMART_TIMEOUT_MS = 20_000
+// SMART is read again only after this long (and never wakes a sleeping disk: -n standby)
+const SMART_TTL_MS = 15 * 60_000
+const smartCache = new Map()
+
+const unknownDisk = (disk) => smartFromJson(disk, {})
+
+async function readSmart(disk) {
   try {
-    // smartctl exits non-zero for warnings too; its JSON is still on stdout
-    const { stdout } = await run('smartctl', ['-j', '-H', '-A', `/dev/${disk}`]).catch((err) => ({ stdout: err.stdout ?? '' }))
+    // smartctl exits non-zero for warnings (and for a disk in standby); its JSON is still on stdout
+    const { stdout } = await run('smartctl', ['-j', '-n', 'standby', '-H', '-A', `/dev/${disk}`], { timeout: SMART_TIMEOUT_MS, killSignal: 'SIGKILL' })
+      .catch((err) => ({ stdout: err.stdout ?? '' }))
     return smartFromJson(disk, JSON.parse(stdout))
   } catch {
-    return smartFromJson(disk, {})
+    return unknownDisk(disk)
   }
 }
 
+async function smart(disk) {
+  const saved = smartCache.get(disk)
+  if (saved && Date.now() - saved.at < SMART_TTL_MS) return saved.value
+  let timer
+  const timeout = new Promise((resolve) => (timer = setTimeout(() => resolve(unknownDisk(disk)), SMART_TIMEOUT_MS + 5_000)))
+  const value = await Promise.race([readSmart(disk), timeout]).finally(() => clearTimeout(timer))
+  // A disk in standby (or a failed read) answers nothing: keep what was last known
+  const empty = value.healthy === null && value.tempC === null && value.reallocated === null && value.pending === null
+  const kept = empty && saved ? saved.value : value
+  smartCache.set(disk, { value: kept, at: Date.now() })
+  return kept
+}
+
+// Docker containers; [] (and a log line) when the Docker API cannot be read
 function dockerContainers() {
   return new Promise((resolve) => {
+    const fail = (err) => {
+      log(`docker: ${err.message}`)
+      resolve([])
+    }
     const req = request({ socketPath: '/var/run/docker.sock', path: '/containers/json?all=1' }, (res) => {
       let body = ''
+      res.setEncoding('utf8')
       res.on('data', (chunk) => (body += chunk))
+      res.on('error', fail)
       res.on('end', () => {
         try {
-          resolve(JSON.parse(body).map(containerFromApi))
-        } catch {
-          resolve([])
+          if (res.statusCode !== 200) throw new Error(`Docker API answered ${res.statusCode}`)
+          resolve(listContainers(JSON.parse(body), config.ignoreContainers ?? []))
+        } catch (err) {
+          fail(err)
         }
       })
     })
-    req.on('error', () => resolve([]))
+    req.setTimeout(5_000, () => req.destroy(new Error('Docker API timed out')))
+    req.on('error', fail)
     req.end()
   })
 }
 
+// A configured mount point that is not mounted (e.g. a RAID that failed to assemble)
+// or cannot be read: the dashboard shows it as "não montado"
+const missingMount = (path) => ({ path, device: '?', totalBytes: 0, usedBytes: 0, raid: null, disks: [] })
+
 async function mountInfo(path, mountsText, arrays) {
-  const stats = statfsSync(path === '/' ? HOST : `${HOST}${path}`)
   const device = mountDevice(mountsText, path)
-  const name = device ? blockName(device) : '?'
-  const disks = device && config.smart !== false ? await Promise.all(physicalDisks(name).map(smart)) : []
+  // Without this check statfs would measure the parent filesystem
+  if (!device) return missingMount(path)
+  const stats = statfsSync(path === '/' ? HOST : `${HOST}${path}`)
+  const name = blockName(device)
+  const disks = config.smart !== false ? await Promise.all(physicalDisks(name).map(smart)) : []
   return {
     path,
     device: name,
@@ -108,18 +147,33 @@ async function mountInfo(path, mountsText, arrays) {
   }
 }
 
+// CPU and network rates come from the counters' change since the previous report
+// (no waiting in between); the first report takes a 1 s sample instead.
+let previous = null
+const counters = () => ({ stat: read('/proc/stat'), net: read('/proc/net/dev'), at: Date.now() })
+
 async function collect() {
+  if (!previous) {
+    previous = counters()
+    await sleep(SAMPLE_MS)
+  }
+  const before = previous
+  const now = counters()
+  previous = now
   const ifaces = interfaces()
-  const cpuA = parseCpu(read('/proc/stat'))
-  const netA = parseNetDev(read('/proc/net/dev'), ifaces)
-  await sleep(SAMPLE_MS)
-  const cpuB = parseCpu(read('/proc/stat'))
-  const netB = parseNetDev(read('/proc/net/dev'), ifaces)
+  const seconds = Math.max(0.001, (now.at - before.at) / 1000)
 
   const arrays = existsSync('/proc/mdstat') ? parseMdstat(read('/proc/mdstat')) : []
   const mountsText = read('/proc/1/mounts')
   const mounts = []
-  for (const path of config.mounts ?? ['/']) mounts.push(await mountInfo(path, mountsText, arrays))
+  for (const path of (config.mounts ?? ['/']).map(mountPath)) {
+    try {
+      mounts.push(await mountInfo(path, mountsText, arrays))
+    } catch (err) {
+      log(`mount ${path}: ${err.message}`)
+      mounts.push(missingMount(path))
+    }
+  }
 
   return fitReport({
     id: config.id,
@@ -128,9 +182,9 @@ async function collect() {
     hostname: tryRead(`${HOST}/etc/hostname`) ?? config.id,
     arch: arch(),
     uptimeSec: Math.round(Number(read('/proc/uptime').split(' ')[0])),
-    cpu: { pct: cpuPct(cpuA, cpuB), cores: cpus().length, load1: Number(read('/proc/loadavg').split(' ')[0]), tempC: cpuTemp() },
+    cpu: { pct: cpuPct(parseCpu(before.stat), parseCpu(now.stat)), cores: cpus().length, load1: Number(read('/proc/loadavg').split(' ')[0]), tempC: cpuTemp() },
     mem: parseMeminfo(read('/proc/meminfo')),
-    net: netRate(netA, netB, SAMPLE_MS / 1000),
+    net: netRate(parseNetDev(before.net, ifaces), parseNetDev(now.net, ifaces), seconds),
     mounts,
     containers: await dockerContainers(),
   })
@@ -143,7 +197,8 @@ async function send(report) {
     body: JSON.stringify(report),
     signal: AbortSignal.timeout(15_000),
   })
-  if (!res.ok) throw new Error(`dashboard answered ${res.status}: ${await res.text()}`)
+  if (!res.ok) throw new Error(`dashboard answered ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  await res.body?.cancel()
 }
 
 if (process.argv.includes('--once')) {
@@ -154,7 +209,7 @@ if (process.argv.includes('--once')) {
     try {
       await send(await collect())
     } catch (err) {
-      console.error(new Date().toISOString(), err.message)
+      log(err.message)
     }
     await sleep(Math.max(1000, INTERVAL_MS - (Date.now() - started)))
   }

@@ -18,6 +18,10 @@ Check what it would send: `sudo docker compose run --rm agent node agent.mjs --o
 | `reportToken` | the dashboard's `REPORT_TOKEN` |
 | `mounts` | mount points to show, e.g. `["/", "/mnt/raid1"]` |
 | `smart` | `false` to skip SMART (e.g. on cloud VMs without real disks) |
+| `ignoreContainers` | exact container names to leave out of the report, e.g. `["icsee-vms"]` (default `[]`) |
 
-The container is privileged (SMART), uses the host network and PID namespace, mounts the Docker socket
-read-only and reads the host's files through `/proc/1/root`. It never writes to the host.
+The container is privileged (SMART), uses the host network and PID namespace, mounts the Docker socket and
+reads the host's files through `/proc/1/root`: treat it as root on the host. The `:ro` on the socket does
+not limit the Docker API (anyone who can talk to it controls Docker). The agent itself only reads: it lists
+containers, reads `/proc`, `/sys` and `statfs`, and runs `smartctl -n standby` (no wake-ups), with SMART
+read at most every 15 minutes per disk. Logs are capped at 3 x 1 MB.

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseMdstat, parseCpu, cpuPct, parseMeminfo, parseNetDev, netRate, smartFromJson, containerFromApi, mountDevice, fitReport } from '../lib.mjs'
+import { parseMdstat, parseCpu, cpuPct, parseMeminfo, parseNetDev, netRate, smartFromJson, containerFromApi, mountDevice, mountPath, listContainers, fitReport } from '../lib.mjs'
 
 const MDSTAT = `Personalities : [raid1] [raid0] [raid6] [raid5] [raid4] [raid10]
 md0 : active raid1 sdb1[2] sdc1[0]
@@ -104,4 +104,45 @@ test('fitReport keeps a report within what the dashboard accepts', () => {
   assert.equal(fit.containers[0].name.length, 200)
   assert.equal(fit.containers[0].ports.length, 64)
   assert.equal(fitReport({ ...report, mounts: [{ ...report.mounts[0], raid: null }] }).mounts[0].raid, null)
+})
+
+test('parseMdstat: dashed member names, inactive arrays, raid0 and checks', () => {
+  const text = `Personalities : [raid1] [raid0]
+md1 : active raid1 dm-3[1] dm-2[0]
+      1000 blocks super 1.2 [2/2] [UU]
+      [==>..................]  check = 12.5% (125/1000) finish=10min speed=1000K/sec
+
+md127 : inactive sdd1[0](S)
+      1000 blocks super 1.2
+
+md2 : active raid0 sde1[1] sdf1[0]
+      2000 blocks super 1.2 512k chunks
+
+unused devices: <none>
+`
+  assert.deepEqual(parseMdstat(text), [
+    { device: 'md1', level: 'RAID 1', state: 'UU', active: 2, total: 2, members: ['dm-2', 'dm-3'], syncPct: null },
+    { device: 'md2', level: 'RAID 0', state: '', active: 2, total: 2, members: ['sde1', 'sdf1'], syncPct: null },
+  ])
+})
+
+test('parseCpu leaves out guest time (already counted in user)', () => {
+  assert.deepEqual(parseCpu('cpu  100 0 100 700 100 0 0 0 50 50\n'), { idle: 800, total: 1000 })
+})
+
+test('mountDevice decodes escaped spaces; mountPath drops trailing slashes', () => {
+  const mounts = '/dev/sdd1 /mnt/my\\040disk ext4 rw 0 0\n'
+  assert.equal(mountDevice(mounts, '/mnt/my disk'), '/dev/sdd1')
+  assert.equal(mountPath('/mnt/raid1/'), '/mnt/raid1')
+  assert.equal(mountPath('/'), '/')
+  assert.equal(mountPath('//'), '/')
+})
+
+test('listContainers leaves out ignored names', () => {
+  const api = [
+    { Id: 'a', Names: ['/jellyfin'], State: 'running', Status: 'Up', Ports: [] },
+    { Id: 'b', Names: ['/n8n'], State: 'exited', Status: 'Exited', Ports: [] },
+  ]
+  assert.deepEqual(listContainers(api, ['n8n']).map((c) => c.name), ['jellyfin'])
+  assert.equal(listContainers(api).length, 2)
 })

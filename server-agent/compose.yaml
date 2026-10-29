@@ -11,3 +11,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./config.json:/agent/config.json:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+        max-file: "3"

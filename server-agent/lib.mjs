@@ -1,22 +1,23 @@
 // Pure parsers of the server agent (/proc files, smartctl JSON, Docker API).
 
 // /proc/mdstat → [{ device, level, state, active, total, members, syncPct }]
+// Inactive arrays are left out. A running check (scrub) is not counted as syncing.
 export function parseMdstat(text) {
   const arrays = []
   let current = null
   for (const line of text.split('\n')) {
-    const head = line.match(/^(md\d+)\s*:\s*\w+(?:\s+\([^)]*\))?\s+(raid\d+|linear)\s+(.*)$/)
-    if (head) {
-      current = {
+    if (/^md\S+\s*:/.test(line)) {
+      const head = line.match(/^(md\S+)\s*:\s*active(?:\s+\([^)]*\))?\s+(raid\d+|linear)\s+(.*)$/)
+      current = head && {
         device: head[1],
         level: head[2].replace(/^raid(\d+)$/, 'RAID $1'),
         state: '',
         active: 0,
         total: 0,
-        members: [...head[3].matchAll(/(\w+)\[\d+\]/g)].map((m) => m[1]).sort(),
+        members: [...head[3].matchAll(/([\w-]+)\[\d+\]/g)].map((m) => m[1]).sort(),
         syncPct: null,
       }
-      arrays.push(current)
+      if (current) arrays.push(current)
       continue
     }
     if (!current) continue
@@ -26,15 +27,18 @@ export function parseMdstat(text) {
       current.active = Number(counts[2])
       current.state = counts[3]
     }
-    const sync = line.match(/(?:resync|recovery|reshape|check)\s*=\s*([\d.]+)%/)
+    const sync = line.match(/(?:resync|recovery|reshape)\s*=\s*([\d.]+)%/)
     if (sync) current.syncPct = Number(sync[1])
   }
+  // raid0 / linear show no [n/m]: every member counts as active
+  for (const a of arrays) if (!a.total) a.total = a.active = a.members.length
   return arrays
 }
 
 // First line of /proc/stat → { idle, total } jiffies
 export function parseCpu(text) {
-  const fields = text.split('\n')[0].trim().split(/\s+/).slice(1).map(Number)
+  // user nice system idle iowait irq softirq steal (guest time is already in user)
+  const fields = text.split('\n')[0].trim().split(/\s+/).slice(1, 9).map(Number)
   return { idle: fields[3] + (fields[4] ?? 0), total: fields.reduce((a, b) => a + b, 0) }
 }
 
@@ -87,12 +91,24 @@ export function containerFromApi(c) {
   return { name: (c.Names?.[0] ?? c.Id.slice(0, 12)).replace(/^\//, ''), state: c.State, status: c.Status, ports }
 }
 
+// Docker API list → containers, without the ones named in `ignore` (exact names)
+export function listContainers(apiList, ignore = []) {
+  const skip = new Set(ignore)
+  return apiList.map(containerFromApi).filter((c) => !skip.has(c.name))
+}
+
+// "/mnt/raid1/" → "/mnt/raid1" (as /proc/<pid>/mounts writes it)
+export const mountPath = (path) => path.replace(/\/+$/, '') || '/'
+
+// /proc/<pid>/mounts writes spaces, tabs, newlines and backslashes as \040, \011, \012, \134
+const unescape = (field) => field.replace(/\\([0-7]{3})/g, (_, octal) => String.fromCharCode(parseInt(octal, 8)))
+
 // Device mounted at `path` in a /proc/<pid>/mounts text (the last match wins)
 export function mountDevice(mountsText, path) {
   let device = null
   for (const line of mountsText.split('\n')) {
     const [dev, point] = line.split(' ')
-    if (point === path) device = dev
+    if (point !== undefined && unescape(point) === path) device = unescape(dev)
   }
   return device
 }
