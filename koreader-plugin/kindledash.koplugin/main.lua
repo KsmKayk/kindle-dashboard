@@ -1,5 +1,5 @@
 --[[--
-Kindle Dashboard: Steam, League of Legends and Spotify from a kindle-dashboard
+Kindle Dashboard: Steam, League of Legends, Spotify, GitHub/Claude and server status from a kindle-dashboard
 server (https://github.com/KsmKayk/kindle-dashboard), full screen in KOReader.
 
 @module koplugin.KindleDash
@@ -34,6 +34,12 @@ function KindleDash:init()
     })
     Dispatcher:registerAction("kindledash_open_spotify", {
         category = "none", event = "KindleDashOpenSpotify", title = _("Kindle Dashboard: Spotify"), general = true,
+    })
+    Dispatcher:registerAction("kindledash_open_work", {
+        category = "none", event = "KindleDashOpenWork", title = _("Kindle Dashboard: Work"), general = true,
+    })
+    Dispatcher:registerAction("kindledash_open_servers", {
+        category = "none", event = "KindleDashOpenServers", title = _("Kindle Dashboard: Servers"), general = true,
     })
     self.ui.menu:registerToMainMenu(self)
 end
@@ -81,6 +87,16 @@ end
 
 function KindleDash:onKindleDashOpenSpotify()
     self:open("spotify")
+    return true
+end
+
+function KindleDash:onKindleDashOpenWork()
+    self:open("work")
+    return true
+end
+
+function KindleDash:onKindleDashOpenServers()
+    self:open("servers")
     return true
 end
 
@@ -135,6 +151,14 @@ function KindleDash:addToMainMenu(menu_items)
             {
                 text = _("Open Spotify player"),
                 callback = function() self:open("spotify") end,
+            },
+            {
+                text = _("Open Work"),
+                callback = function() self:open("work") end,
+            },
+            {
+                text = _("Open Servers"),
+                callback = function() self:open("servers") end,
                 separator = true,
             },
             {
@@ -159,10 +183,10 @@ function KindleDash:addToMainMenu(menu_items)
                 end,
             },
             {
-                text_func = function() return T(_("Dashboard refresh: %1 s"), self:dashboardInterval()) end,
+                text_func = function() return T(_("Image tabs refresh: %1 s"), self:dashboardInterval()) end,
                 keep_menu_open = true,
                 callback = function(touchmenu_instance)
-                    self:editSetting(_("Dashboard refresh (seconds)"), self:dashboardInterval(), "number", function(value)
+                    self:editSetting(_("Image tabs refresh (seconds)"), self:dashboardInterval(), "number", function(value)
                         local seconds = math.max(MIN_DASHBOARD_INTERVAL, tonumber(value) or DEFAULT_DASHBOARD_INTERVAL)
                         G_reader_settings:saveSetting("kindledash_dashboard_interval", math.floor(seconds))
                     end, touchmenu_instance)

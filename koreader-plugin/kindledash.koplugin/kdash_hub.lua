@@ -1,5 +1,5 @@
 --[[--
-Full-screen window of the plugin: a tab bar (Dashboard / Spotify / Close) and
+Full-screen window of the plugin: a tab bar (Dashboard / Spotify / Work / Servers / Close) and
 the active view below it. Views build their widgets and ask the hub to swap
 them in and refresh only the part of the screen that changed.
 --]]
@@ -20,16 +20,24 @@ local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
 local _ = require("gettext")
 
-local DashboardView = require("kdash_dashboard")
+local ImageView = require("kdash_image")
+local Tabs = require("kdash_tabs")
 local Ui = require("kdash_ui")
 local SpotifyView = require("kdash_spotify")
 
 local Screen = Device.screen
 
 local BAR_HEIGHT = 56
-local TAB_WIDTH = 150
-local CLOSE_WIDTH = 100
+local TAB_GAP = 8
+local CLOSE_WIDTH = 90
 local BAR_PADDING = 12
+
+local TAB_LABELS = {
+    dashboard = _("Dashboard"),
+    spotify = _("Spotify"),
+    work = _("Work"),
+    servers = _("Servers"),
+}
 
 local Hub = InputContainer:extend{
     name = "kindledash_hub",
@@ -53,9 +61,12 @@ function Hub:init()
     end
 
     local view_args = { hub = self, api = self.api, width = self.width, height = content_height, cache_dir = self.cache_dir }
+    local interval = self.settings.dashboard_interval
     self.views = {
-        dashboard = DashboardView.new(view_args, self.settings.dashboard_interval),
+        dashboard = ImageView.new(view_args, { path = "/api/kindle/dashboard.png", file = "dashboard.png", interval = interval }),
         spotify = SpotifyView.new(view_args),
+        work = ImageView.new(view_args, { path = "/api/kindle/work.png", file = "work.png", interval = interval }),
+        servers = ImageView.new(view_args, { path = "/api/kindle/servers.png", file = "servers.png", interval = interval }),
     }
 
     -- Fixed-size area the views draw into; its dimen is the content region to refresh
@@ -68,7 +79,7 @@ function Hub:tab(label, name)
     local active = self.active_name == name
     return Button:new{
         text = label,
-        width = Screen:scaleBySize(TAB_WIDTH),
+        width = self.tab_width,
         height = Screen:scaleBySize(BAR_HEIGHT - 16),
         radius = Size.radius.button,
         bordersize = active and Size.border.thick or Size.border.button,
@@ -80,28 +91,33 @@ end
 
 function Hub:layout()
     local pad = Screen:scaleBySize(BAR_PADDING)
-    local fixed = 2 * pad + 2 * Screen:scaleBySize(TAB_WIDTH) + Screen:scaleBySize(8) + Screen:scaleBySize(CLOSE_WIDTH)
+    local gap = Screen:scaleBySize(TAB_GAP)
+    local close_width = Screen:scaleBySize(CLOSE_WIDTH)
+    self.tab_width = Tabs.width(self.width, pad, gap, close_width)
+
+    local row = HorizontalGroup:new{
+        align = "center",
+        VerticalSpan:new{ width = self.bar_height },
+        HorizontalSpan:new{ width = pad },
+    }
+    for _i, name in ipairs(Tabs.ORDER) do
+        table.insert(row, self:tab(TAB_LABELS[name], name))
+        table.insert(row, HorizontalSpan:new{ width = gap })
+    end
+    table.insert(row, Button:new{
+        text = _("Close"),
+        width = close_width,
+        height = Screen:scaleBySize(BAR_HEIGHT - 16),
+        radius = Size.radius.button,
+        text_font_size = 16,
+        callback = function() self:onClose() end,
+    })
+
     local bar = FrameContainer:new{
         bordersize = 0, padding = 0, margin = 0,
         width = self.width, height = self.bar_height,
         background = Blitbuffer.COLOR_WHITE,
-        HorizontalGroup:new{
-            align = "center",
-            VerticalSpan:new{ width = self.bar_height },
-            HorizontalSpan:new{ width = pad },
-            self:tab(_("Dashboard"), "dashboard"),
-            HorizontalSpan:new{ width = Screen:scaleBySize(8) },
-            self:tab(_("Spotify"), "spotify"),
-            HorizontalSpan:new{ width = math.max(0, self.width - fixed) },
-            Button:new{
-                text = _("Close"),
-                width = Screen:scaleBySize(CLOSE_WIDTH),
-                height = Screen:scaleBySize(BAR_HEIGHT - 16),
-                radius = Size.radius.button,
-                text_font_size = 16,
-                callback = function() self:onClose() end,
-            },
-        },
+        row,
     }
     self[1] = FrameContainer:new{
         bordersize = 0, padding = 0, margin = 0,
@@ -152,14 +168,13 @@ function Hub:switchTo(name)
     view:start()
 end
 
+-- Swipe left = next tab, swipe right = previous tab
 function Hub:onSwipe(_arg, ges)
-    if ges.direction == "west" then
-        self:switchTo("spotify")
-        return true
-    elseif ges.direction == "east" then
-        self:switchTo("dashboard")
-        return true
-    end
+    local step = (ges.direction == "west" and 1) or (ges.direction == "east" and -1) or nil
+    if not step then return end
+    local target = Tabs.neighbour(self.active_name, step)
+    if target then self:switchTo(target) end
+    return true
 end
 
 function Hub:onShow()

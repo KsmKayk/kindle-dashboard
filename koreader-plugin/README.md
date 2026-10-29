@@ -1,19 +1,25 @@
 # Kindle Dashboard — KOReader plugin
 
 A [KOReader](https://github.com/koreader/koreader) plugin that turns the Kindle into a small
-dashboard, full screen, with two tabs:
+dashboard, full screen, with four tabs:
 
 - **Dashboard** — Steam + League of Legends, as on `/kindle`. The server renders it as a grayscale
   PNG sized to the screen (`/api/kindle/dashboard.png`) and the plugin downloads it every 60 s.
 - **Spotify** — album cover, track, progress, **Prev / Play-Pause / Next** buttons and
   **synced lyrics**. The plugin polls `/api/spotify` every 5 s and a local clock moves the lyrics
   between polls; each line change redraws only the lyrics box, without flashing the whole screen.
+- **Work** — GitHub (PRs opened and reviewed, commits, open PRs, review queue, deploys) and Claude
+  usage, as a server-rendered PNG (`/api/kindle/work.png`), refreshed like the Dashboard tab.
+- **Servers** — CPU, RAM, disks, RAID, SMART, containers and site health checks of your servers
+  (`/api/kindle/servers.png`). Both new tabs need the access token when the server sets one.
 
 Switch tabs with the buttons in the top bar or by swiping left/right. **Close** returns to KOReader.
 
 ```
 Kindle (KOReader + kindledash.koplugin)            kindle-dashboard server
   Dashboard tab ── every 60 s ───────────────────► /api/kindle/dashboard.png?w=&h=
+  Work tab      ── every 60 s ───────────────────► /api/kindle/work.png?w=&h=
+  Servers tab   ── every 60 s ───────────────────► /api/kindle/servers.png?w=&h=
   Spotify tab   ── every 5 s ────────────────────► /api/spotify
                 ── once per track ───────────────► /api/spotify/lyrics, /api/image-proxy (cover)
                 ── on tap ───────────────────────► POST /api/spotify/control
@@ -37,10 +43,10 @@ In **Tools → Kindle Dashboard**:
 | Setting | Default |
 |---|---|
 | Server | *not set*: your kindle-dashboard URL, e.g. `https://dashboard.example.com` (asked the first time you open the plugin) |
-| Access token | *not set*: the server's `KINDLE_API_TOKEN`, needed for the Spotify tab when the server sets one |
-| Dashboard refresh | 60 s (minimum 15) |
+| Access token | *not set*: the server's `KINDLE_API_TOKEN`, needed for the Spotify, Work and Servers tabs when the server sets one |
+| Image tabs refresh | 60 s (minimum 15) |
 
-To open it with a gesture, add **Kindle Dashboard** (or **Kindle Dashboard: Spotify**) to a
+To open it with a gesture, add **Kindle Dashboard** (or **Kindle Dashboard: Spotify**, **Kindle Dashboard: Work** or **Kindle Dashboard: Servers**) to a
 gesture in **Settings → Taps and gestures → Gesture manager**: the actions are listed under *General*.
 
 ## Keeping the screen on
@@ -66,6 +72,7 @@ The plugin is plain Lua (LuaJIT, KOReader's widget toolkit). Pure logic is teste
 cd koreader-plugin
 lua spec/lyrics_test.lua   # lyric line / playback clock
 lua spec/api_test.lua      # URL building
+lua spec/tabs_test.lua     # tab order / width
 ```
 
 Files in `kindledash.koplugin/`:
@@ -74,7 +81,8 @@ Files in `kindledash.koplugin/`:
 |---|---|
 | `main.lua` | Registers the menu entry, gesture actions and settings; opens the hub |
 | `kdash_hub.lua` | Full-screen window: tab bar, active view, partial refreshes |
-| `kdash_dashboard.lua` | Dashboard tab (downloads and shows the server PNG) |
+| `kdash_image.lua` | Image tabs (Dashboard, Work, Servers): downloads and shows a server PNG |
+| `kdash_tabs.lua` | Pure helpers: tab order, tab width |
 | `kdash_spotify.lua` | Spotify tab (polling, lyrics clock, controls) |
 | `kdash_lyrics.lua` | Pure helpers: current lyric line, playback clock |
 | `kdash_api.lua` | HTTP client (LuaSocket, short timeouts) |

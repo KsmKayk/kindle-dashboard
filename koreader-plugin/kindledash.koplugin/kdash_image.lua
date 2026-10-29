@@ -1,6 +1,7 @@
 --[[--
-Dashboard tab: the server renders Steam + League as a PNG sized to this area
-(/api/kindle/dashboard.png); this view downloads it on an interval and shows it.
+A tab that shows a PNG the server renders to the size of this area
+(/api/kindle/dashboard.png, work.png, servers.png): downloads it on an
+interval and keeps the last good image when the server is unreachable.
 --]]
 
 local Blitbuffer = require("ffi/blitbuffer")
@@ -20,17 +21,19 @@ local FULL_REFRESH_EVERY = 10
 -- Let the tab switch paint before the (blocking) download starts
 local START_DELAY = 0.3
 
-local DashboardView = {}
-DashboardView.__index = DashboardView
+local ImageView = {}
+ImageView.__index = ImageView
 
-function DashboardView.new(args, interval)
-    local self = setmetatable({}, DashboardView)
+-- `opts`: path (server route), file (cache file name), interval (seconds)
+function ImageView.new(args, opts)
+    local self = setmetatable({}, ImageView)
     self.hub = args.hub
     self.api = args.api
     self.width = args.width
     self.height = args.height
-    self.interval = interval or 60
-    self.image_file = args.cache_dir .. "/dashboard.png"
+    self.path = opts.path
+    self.interval = opts.interval or 60
+    self.image_file = args.cache_dir .. "/" .. opts.file
     -- Show the image from the last session right away, until a fresh one arrives
     self.has_image = lfs.attributes(self.image_file, "mode") == "file"
     self.error = nil
@@ -40,20 +43,20 @@ function DashboardView.new(args, interval)
     return self
 end
 
-function DashboardView:start()
+function ImageView:start()
     self.running = true
     UIManager:unschedule(self.fetch_cb)
     UIManager:scheduleIn(START_DELAY, self.fetch_cb)
 end
 
-function DashboardView:stop()
+function ImageView:stop()
     self.running = false
     UIManager:unschedule(self.fetch_cb)
 end
 
-function DashboardView:fetch()
+function ImageView:fetch()
     if not self.running then return end
-    local path = Api.withQuery("/api/kindle/dashboard.png", { w = self.width, h = self.height })
+    local path = Api.withQuery(self.path, { w = self.width, h = self.height })
     local ok, err = self.api:download(path, self.image_file)
     if ok then
         self.has_image = true
@@ -62,7 +65,7 @@ function DashboardView:fetch()
         local mode = self.updates % FULL_REFRESH_EVERY == 0 and "full" or "ui"
         self.hub:setContent(self, self:build(), mode)
     else
-        logger.warn("kindledash: dashboard download failed:", err)
+        logger.warn("kindledash:", self.path, "download failed:", err)
         self.error = err
         -- Keep showing the last image; only a first-load failure needs a message
         if not self.has_image then self.hub:setContent(self, self:build(), "ui") end
@@ -70,7 +73,7 @@ function DashboardView:fetch()
     UIManager:scheduleIn(self.interval, self.fetch_cb)
 end
 
-function DashboardView:message(text)
+function ImageView:message(text)
     return Ui.region(self.width, self.height, TextBoxWidget:new{
         text = text,
         face = Ui.serif(16),
@@ -80,7 +83,7 @@ function DashboardView:message(text)
     })
 end
 
-function DashboardView:build()
+function ImageView:build()
     if self.has_image then
         return Ui.region(self.width, self.height, ImageWidget:new{
             file = self.image_file,
@@ -96,4 +99,4 @@ function DashboardView:build()
     return self:message(_("Loading…"))
 end
 
-return DashboardView
+return ImageView
