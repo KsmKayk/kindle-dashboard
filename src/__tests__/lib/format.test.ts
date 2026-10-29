@@ -45,6 +45,8 @@ it('bytesLabel', () => {
 it('rateLabel and uptimeLabel', () => {
   expect(rateLabel(1_258_291)).toBe('1.2 MB/s')
   expect(rateLabel(20_480)).toBe('20 KB/s')
+  expect(rateLabel(310)).toBe('0.3 KB/s')
+  expect(rateLabel(9_830)).toBe('9.6 KB/s')
   expect(uptimeLabel(41 * 86_400 + 3600)).toBe('41d')
   expect(uptimeLabel(5 * 3600)).toBe('5h')
 })

@@ -18,7 +18,10 @@ export async function checkTarget(target: HealthTarget, fetchImpl: typeof fetch 
   const started = Date.now()
   try {
     const res = await fetchImpl(target.url, { redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) })
-    return { label: target.label, ok: res.status < 400, status: res.status, ms: Date.now() - started }
+    const ms = Date.now() - started
+    // Only the status matters: release the connection instead of leaving the body unread
+    await res.body?.cancel().catch(() => {})
+    return { label: target.label, ok: res.status < 400, status: res.status, ms }
   } catch {
     return { label: target.label, ok: false, status: null, ms: null }
   }

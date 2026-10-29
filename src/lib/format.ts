@@ -71,7 +71,7 @@ export function bytesLabel(bytes: number): string {
 
 export function rateLabel(bytesPerSecond: number): string {
   if (bytesPerSecond >= 1024 ** 2) return `${short(bytesPerSecond / 1024 ** 2)} MB/s`
-  return `${Math.round(bytesPerSecond / 1024)} KB/s`
+  return `${short(bytesPerSecond / 1024)} KB/s`
 }
 
 export function uptimeLabel(seconds: number): string {

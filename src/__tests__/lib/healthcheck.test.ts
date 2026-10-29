@@ -20,3 +20,11 @@ it('maps responses, redirects and failures', async () => {
   expect(await checkTarget(target, answer(502))).toMatchObject({ ok: false, status: 502 })
   expect(await checkTarget(target, jest.fn().mockRejectedValue(new Error('timeout')))).toEqual({ label: 'site', ok: false, status: null, ms: null })
 })
+
+it('releases the response body', async () => {
+  const cancel = jest.fn()
+  const body = new ReadableStream({ cancel })
+  const fetchImpl = jest.fn().mockResolvedValue(new Response(body, { status: 200 }))
+  expect(await checkTarget({ label: 'site', url: 'https://a.com' }, fetchImpl)).toMatchObject({ ok: true })
+  expect(cancel).toHaveBeenCalled()
+})

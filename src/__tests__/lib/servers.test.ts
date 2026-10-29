@@ -1,4 +1,4 @@
-import { isStale, diskNeedsAttention, raidNeedsAttention, mountNeedsAttention, ramNeedsAttention, containerDown, usedPct, STALE_MS } from '@/lib/servers'
+import { isStale, diskNeedsAttention, raidNeedsAttention, mountNeedsAttention, mountMissing, ramNeedsAttention, containerDown, usedPct, smartLabel, STALE_MS } from '@/lib/servers'
 import type { MountInfo, ServerReport } from '@/types'
 
 const mount: MountInfo = {
@@ -41,4 +41,21 @@ it('ram attention at 90%', () => {
 it('containerDown', () => {
   expect(containerDown({ name: 'a', state: 'running', status: '', ports: [] })).toBe(false)
   expect(containerDown({ name: 'a', state: 'exited', status: '', ports: [] })).toBe(true)
+})
+
+it('a configured mount that is not mounted needs attention', () => {
+  const missing: MountInfo = { path: '/mnt/raid1', device: '?', totalBytes: 0, usedBytes: 0, raid: null, disks: [] }
+  expect(mountMissing(missing)).toBe(true)
+  expect(mountMissing(mount)).toBe(false)
+  expect(mountNeedsAttention(missing)).toBe(true)
+})
+
+it('smartLabel: FALHA only for a failed check, sector counts otherwise', () => {
+  const disk = mount.disks[0]
+  expect(smartLabel(disk)).toBe('OK 35°C')
+  expect(smartLabel({ ...disk, healthy: false })).toBe('FALHA 35°C')
+  expect(smartLabel({ ...disk, reallocated: 40 })).toBe('40 realoc. 35°C')
+  expect(smartLabel({ ...disk, pending: 2 })).toBe('2 pend. 35°C')
+  expect(smartLabel({ ...disk, reallocated: 40, pending: 2, tempC: null })).toBe('40 realoc. 2 pend.')
+  expect(smartLabel({ device: 'sda', healthy: null, tempC: null, reallocated: null, pending: null })).toBe('')
 })
