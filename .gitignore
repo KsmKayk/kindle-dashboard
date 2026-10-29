@@ -46,3 +46,6 @@ next-env.d.ts
 
 # server-cache data
 .cache
+
+# brainstorming mockups
+.superpowers/
