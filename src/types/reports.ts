@@ -1,6 +1,6 @@
 // Reports pushed by claude-reporter/ (Claude usage) and server-agent/ (server status)
 
-export interface ClaudeLimit { utilization: number; resetsAt: string }  // utilization: percent
+export interface ClaudeLimit { utilization: number; resetsAt: string | null }  // utilization: percent; resetsAt is null while no session is active
 export interface ClaudeLimits { fiveHour: ClaudeLimit | null; sevenDay: ClaudeLimit | null; at: string }
 
 // One local day of Claude Code usage (tokens)

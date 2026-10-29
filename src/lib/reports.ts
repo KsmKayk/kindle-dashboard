@@ -47,7 +47,7 @@ const isStr = (v: unknown, max = 200): v is string => typeof v === 'string' && v
 const isList = (v: unknown, max: number, each: (item: unknown) => boolean) => Array.isArray(v) && v.length <= max && v.every(each)
 const isCounts = (v: unknown) => isObj(v) && Object.keys(v).length <= 200 && Object.values(v).every(isNonNeg)
 
-const isLimit = (v: unknown) => v === null || (isObj(v) && isNonNeg(v.utilization) && isDate(v.resetsAt))
+const isLimit = (v: unknown) => v === null || (isObj(v) && isNonNeg(v.utilization) && (v.resetsAt === null || isDate(v.resetsAt)))
 
 const isDay = (v: unknown) =>
   isObj(v) && isStr(v.date) && /^\d{4}-\d{2}-\d{2}$/.test(v.date) &&

@@ -55,3 +55,5 @@ claude-reporter/config.json
 claude-reporter/state.json
 claude-reporter/last-run.log
 server-agent/config.json
+claude-reporter/node-path.txt
+claude-reporter/state.json.tmp

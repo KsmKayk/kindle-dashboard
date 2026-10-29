@@ -61,6 +61,7 @@ describe('validation', () => {
     expect(isClaudeReport({ limits: null, days: [day, day] })).toBe(false)
     expect(isClaudeReport({ limits: { ...limits, at: 'yesterday' }, days: [] })).toBe(false)
     expect(isClaudeReport({ limits: { ...limits, fiveHour: { utilization: 1, resetsAt: 'soon' } }, days: [] })).toBe(false)
+    expect(isClaudeReport({ limits: { ...limits, fiveHour: { utilization: 0, resetsAt: null } }, days: [] })).toBe(true)
     expect(isClaudeReport({ limits: null, days: [{ ...day, input: -1 }] })).toBe(false)
     expect(isServerReport({ ...server, uptimeSec: -5 })).toBe(false)
     expect(isServerReport({ ...server, mem: { totalBytes: 1, usedBytes: -1 } })).toBe(false)

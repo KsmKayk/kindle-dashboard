@@ -221,8 +221,8 @@ function Claude({ claude, now }: { claude: ClaudeSummary | null; now: Date }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
       <SectionHeader label="CLAUDE" meta={meta} marginBottom={0} />
       <div style={{ display: 'flex', gap: 8 }}>
-        <LimitCard title="SESSÃO 5H" pct={five?.utilization ?? null} note={five ? `reseta ${untilLabel(five.resetsAt, now)}` : 'sem leitura'} dark />
-        <LimitCard title="SEMANAL" pct={seven?.utilization ?? null} note={seven ? `reseta ${weekdayTime(seven.resetsAt)}` : 'sem leitura'} dark={(seven?.utilization ?? 0) >= 90} />
+        <LimitCard title="SESSÃO 5H" pct={five?.utilization ?? null} note={five ? (five.resetsAt ? `reseta ${untilLabel(five.resetsAt, now)}` : 'sem sessão ativa') : 'sem leitura'} dark />
+        <LimitCard title="SEMANAL" pct={seven?.utilization ?? null} note={seven?.resetsAt ? `reseta ${weekdayTime(seven.resetsAt)}` : 'sem leitura'} dark={(seven?.utilization ?? 0) >= 90} />
       </div>
       <div style={{ ...card, alignItems: 'center', padding: '8px 12px', gap: 12 }}>
         <div style={{ display: 'flex', flexDirection: 'column', width: 200 }}>

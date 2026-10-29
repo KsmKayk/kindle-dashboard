@@ -1,6 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { usageFromLine, emptyState, addUsage, pruneState, completeLines, daysForReport, limitsFromUsage, localDay } from '../lib.mjs'
+import { usageFromLine, emptyState, addUsage, pruneState, completeLines, daysForReport, limitsFromUsage, localDay, scanLogs, normalizeState } from '../lib.mjs'
+import { mkdtempSync, mkdirSync, writeFileSync, appendFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const line = (overrides = {}) => JSON.stringify({
   type: 'assistant',
@@ -76,7 +79,7 @@ test('limitsFromUsage maps the usage endpoint', () => {
     sevenDay: { utilization: 0, resetsAt: '2026-11-05T06:59:59.553619+00:00' },
     at: '2026-10-29T15:00:00.000Z',
   })
-  assert.equal(limitsFromUsage({ five_hour: null, seven_day: null }, new Date()).fiveHour, null)
+  assert.equal(limitsFromUsage({ five_hour: null, seven_day: null }, new Date()), null)
 })
 
 test('usageFromLine skips lines the server could not accept', () => {
@@ -95,7 +98,81 @@ test('daysForReport folds records beyond 100 keys into other', () => {
 })
 
 test('limitsFromUsage drops limits the server would reject', () => {
-  const l = limitsFromUsage({ five_hour: { utilization: 3, resets_at: null }, seven_day: { utilization: -1, resets_at: '2026-11-05T00:00:00Z' } }, new Date())
-  assert.equal(l.fiveHour, null)
+  const l = limitsFromUsage({ five_hour: { utilization: 3, resets_at: 'garbage' }, seven_day: { utilization: -1, resets_at: '2026-11-05T00:00:00Z' } }, new Date())
+  assert.equal(l, null)
+})
+
+test('limitsFromUsage keeps an idle 5-hour window as a null reset', () => {
+  const l = limitsFromUsage({ five_hour: { utilization: 0, resets_at: null }, seven_day: null }, new Date('2026-10-29T15:00:00Z'))
+  assert.deepEqual(l.fiveHour, { utilization: 0, resetsAt: null })
   assert.equal(l.sevenDay, null)
+})
+
+test('daysForReport adds to an existing other key', () => {
+  const state = emptyState()
+  addUsage(state, { key: 'o', date: '2026-10-29', model: 'm', project: 'other', input: 5, output: 0, cacheWrite: 0, cacheRead: 0 })
+  for (let i = 0; i < 150; i++) addUsage(state, { key: `k${i}`, date: '2026-10-29', model: 'm', project: `p${i}`, input: 1, output: 0, cacheWrite: 0, cacheRead: 0 })
+  const day = daysForReport(state)[0]
+  assert.equal(Object.values(day.byProject).reduce((a, b) => a + b, 0), 155)
+})
+
+test('normalizeState repairs a wrong-shaped state', () => {
+  assert.deepEqual(normalizeState(null), emptyState())
+  assert.deepEqual(normalizeState({ files: [], seen: 'x', days: { a: 1 } }), { files: {}, seen: {}, days: { a: 1 } })
+})
+
+const logLine = (id) => line({ requestId: `r${id}`, message: { id: `m${id}`, model: 'claude-opus-5-5', usage: { output_tokens: 10 } } }) + '\n'
+const total = (state) => Object.values(state.days).reduce((n, d) => n + d.output, 0)
+
+test('scanLogs reads incrementally, re-reads a partial line, and survives bad files', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'reporter-'))
+  try {
+    mkdirSync(join(dir, 'sub'))
+    const a = join(dir, 'a.jsonl')
+    const b = join(dir, 'sub', 'b.jsonl')
+    writeFileSync(a, logLine(1) + logLine(2))
+    writeFileSync(b, logLine(3) + logLine(4).slice(0, 30))
+    const errors = []
+    const state = emptyState()
+    scanLogs(state, dir, (m) => errors.push(m))
+    assert.equal(total(state), 30)
+    assert.equal(state.files[a], Buffer.byteLength(logLine(1) + logLine(2)))
+    assert.equal(state.files[b], Buffer.byteLength(logLine(3)))
+
+    appendFileSync(b, logLine(4).slice(30))  // the line is completed
+    scanLogs(state, dir, (m) => errors.push(m))
+    assert.equal(total(state), 40)
+
+    writeFileSync(a, logLine(1))  // truncated and rewritten: no double counting
+    scanLogs(state, dir, (m) => errors.push(m))
+    assert.equal(total(state), 40)
+    assert.equal(state.files[a], Buffer.byteLength(logLine(1)))
+
+    rmSync(b)  // vanished file is forgotten
+    scanLogs(state, dir, (m) => errors.push(m))
+    assert.equal(state.files[b], undefined)
+    assert.deepEqual(errors, [])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('scanLogs ignores a directory named like a log and keeps going', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'reporter-'))
+  try {
+    mkdirSync(join(dir, 'dir.jsonl'))  // a directory named like a log: opening it for reading fails
+    writeFileSync(join(dir, 'ok.jsonl'), logLine(1))
+    const errors = []
+    const state = emptyState()
+    scanLogs(state, dir, (m) => errors.push(m))
+    assert.equal(total(state), 10)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('scanLogs on a missing directory does nothing', () => {
+  const state = emptyState()
+  scanLogs(state, join(tmpdir(), 'does-not-exist-reporter'), () => {})
+  assert.deepEqual(state, emptyState())
 })

@@ -4,52 +4,48 @@
 // Run every 5 minutes by Task Scheduler (install.ps1). Never refreshes the
 // login token: that would rotate it and could sign Claude Code out.
 
-import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs'
+import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { addUsage, completeLines, daysForReport, emptyState, limitsFromUsage, pruneState, usageFromLine } from './lib.mjs'
+import { daysForReport, limitsFromUsage, normalizeState, pruneState, scanLogs } from './lib.mjs'
 
 const here = new URL('.', import.meta.url)
-const config = JSON.parse(readFileSync(new URL('config.json', here), 'utf8'))
 const statePath = new URL('state.json', here)
-const claudeDir = config.claudeDir ?? join(homedir(), '.claude')
+
+function fail(message) {
+  console.error(message)
+  process.exit(1)
+}
+
+function loadConfig() {
+  let config
+  try {
+    config = JSON.parse(readFileSync(new URL('config.json', here), 'utf8'))
+  } catch (err) {
+    fail(`config.json unreadable (copy config.example.json): ${err.message}`)
+  }
+  if (typeof config?.dashboardUrl !== 'string' || !config.dashboardUrl) fail('config.json: dashboardUrl is missing')
+  if (typeof config.reportToken !== 'string' || !config.reportToken) fail('config.json: reportToken is missing')
+  return config
+}
 
 function loadState() {
   try {
-    return JSON.parse(readFileSync(statePath, 'utf8'))
+    return normalizeState(JSON.parse(readFileSync(statePath, 'utf8')))
   } catch {
-    return emptyState()
+    return normalizeState(null)
   }
 }
 
-function logFiles(dir) {
-  if (!existsSync(dir)) return []
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) return logFiles(path)
-    return entry.name.endsWith('.jsonl') ? [path] : []
-  })
+// Written to a temp file and renamed, so a crash never leaves a half-written state.json
+function saveState(state) {
+  const tmp = new URL('state.json.tmp', here)
+  writeFileSync(tmp, JSON.stringify(state))
+  renameSync(tmp, statePath)
 }
 
-// Reads what was appended to each log since the last run
-function scanLogs(state) {
-  for (const file of logFiles(join(claudeDir, 'projects'))) {
-    const size = statSync(file).size
-    let offset = state.files[file] ?? 0
-    if (size < offset) offset = 0  // file was rewritten: read it again (seen keys prevent double counts)
-    if (size === offset) continue
-    const buffer = Buffer.alloc(size - offset)
-    const fd = openSync(file, 'r')
-    try {
-      readSync(fd, buffer, 0, buffer.length, offset)
-    } finally {
-      closeSync(fd)
-    }
-    const { lines, consumed } = completeLines(buffer)
-    for (const line of lines) addUsage(state, usageFromLine(line))
-    state.files[file] = offset + consumed
-  }
-}
+const config = loadConfig()
+const claudeDir = config.claudeDir ?? join(homedir(), '.claude')
 
 async function readLimits() {
   try {
@@ -67,20 +63,25 @@ async function readLimits() {
 }
 
 const state = loadState()
-scanLogs(state)
+scanLogs(state, join(claudeDir, 'projects'))
 pruneState(state, new Date())
 // Saved before sending: totals are re-sent in full next time if this send fails
-writeFileSync(statePath, JSON.stringify(state))
+saveState(state)
 
 const report = { limits: await readLimits(), days: daysForReport(state) }
-const res = await fetch(`${config.dashboardUrl.replace(/\/+$/, '')}/api/claude/report`, {
-  method: 'POST',
-  headers: { Authorization: `Bearer ${config.reportToken}`, 'Content-Type': 'application/json' },
-  body: JSON.stringify(report),
-  signal: AbortSignal.timeout(15_000),
-})
-if (!res.ok) {
-  console.error(`dashboard answered ${res.status}: ${await res.text()}`)
-  process.exit(1)
+// exitCode instead of process.exit: exiting with a request still closing aborts node on Windows
+let sent = false
+try {
+  const res = await fetch(`${config.dashboardUrl.replace(/\/+$/, '')}/api/claude/report`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${config.reportToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(report),
+    signal: AbortSignal.timeout(15_000),
+  })
+  if (res.ok) sent = true
+  else console.error(`dashboard answered ${res.status}: ${await res.text()}`)
+} catch (err) {
+  console.error(`could not reach the dashboard: ${err.message}`)
 }
-console.log(`${new Date().toISOString()} sent ${report.days.length} days, limits ${report.limits ? 'ok' : 'missing'}`)
+if (sent) console.log(`${new Date().toISOString()} sent ${report.days.length} days, limits ${report.limits ? 'ok' : 'missing'}`)
+else process.exitCode = 1
