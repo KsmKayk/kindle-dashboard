@@ -21,7 +21,7 @@ A self-hosted dashboard that turns a **Kindle** into an e-ink status display. Th
 
 The main app is a full React/Next.js dashboard for modern browsers. The Kindle can show it in three ways:
 
-- **[KOReader plugin](#koreader-plugin)** *(interactive)* — a native app on the Kindle with a **Dashboard** tab and a **Spotify** tab (cover, Prev / Play-Pause / Next buttons, synced lyrics). It refreshes more often than the other options and redraws only the part of the screen that changed.
+- **[KOReader plugin](#koreader-plugin)** *(interactive)* — a native app on the Kindle with a **Dashboard** tab, a **Spotify** tab (cover, Prev / Play-Pause / Next buttons, synced lyrics), a **Work** tab (GitHub + Claude usage) and a **Servers** tab (health of two servers). It refreshes more often than the other options and redraws only the part of the screen that changed.
 - **[TRMNL + LaraPaper](#trmnl--larapaper)** *(static display)* — a self-hosted [LaraPaper](https://github.com/usetrmnl/larapaper) server renders the dashboard into an e-ink image and the Kindle just displays it.
 - **[Fullscreen browser](#the-rendering-challenge--how-to-make-it-work-on-a-kindle)** — a dedicated `/kindle` route serves a zero-JavaScript, pre-rendered HTML page that even the oldest WebKit browser can handle.
 
@@ -150,12 +150,16 @@ jailbroken Kindles and has a Lua plugin system with native widgets, touch input 
 the e-ink panel refreshes. [`koreader-plugin/kindledash.koplugin`](koreader-plugin/) uses it to turn
 the Kindle into a small hub, without the limits of the Kindle browser (no JavaScript, full-page reloads).
 
-It opens full screen with a tab bar (**Dashboard**, **Spotify**, **Close**); switch tabs with the
+It opens full screen with a tab bar (**Dashboard**, **Spotify**, **Work**, **Servers**, **Close**); switch tabs with the
 buttons or by swiping left/right.
 
 - **Dashboard** — Steam + League with the same look as `/kindle`. This app renders it as a grayscale
   PNG sized to the screen (`/api/kindle/dashboard.png`, built with `next/og`) and the plugin downloads
   it every 60 s (configurable, minimum 15 s).
+- **Work** — GitHub (commits, PRs, latest deploys) and Claude Code usage (5-hour and weekly limits,
+  tokens per day), rendered as a PNG (`/api/kindle/work.png`). See [Work and Servers tabs](#work-and-servers-tabs).
+- **Servers** — CPU, memory, disk, temperatures, containers and site checks for two servers, rendered as a
+  PNG (`/api/kindle/servers.png`).
 - **Spotify** — album cover, track, progress bar, **Prev / Play-Pause / Next** buttons and synced
   lyrics. The plugin polls `/api/spotify` every 5 s and a local clock moves the lyrics between polls:
   each line change redraws only the lyrics box, so the screen doesn't flash on every line.
@@ -163,6 +167,8 @@ buttons or by swiping left/right.
 ```
 Kindle (KOReader + kindledash.koplugin)            this app
   Dashboard tab ── every 60 s ───────────────────► /api/kindle/dashboard.png?w=&h=
+  Work tab      ── on open / refresh ──────────────► /api/kindle/work.png?w=&h=
+  Servers tab   ── on open / refresh ──────────────► /api/kindle/servers.png?w=&h=
   Spotify tab   ── every 5 s ────────────────────► /api/spotify
                 ── once per track ───────────────► /api/spotify/lyrics, /api/image-proxy (cover)
                 ── on tap ───────────────────────► POST /api/spotify/control
@@ -190,6 +196,8 @@ development notes: [`koreader-plugin/README.md`](koreader-plugin/README.md).
 | 🎮 **Steam** | Online status · Now Playing card with game art (*Last played* on the TRMNL screen when not in game) · Top 3 games with hours played · Total library count |
 | 🏆 **League of Legends** | Summoner profile · Last 4 matches with queue type, KDA and W/L badge · Top 3 champions with winrate bar |
 | 🎵 **Spotify** | Current (or last played) track with album art · player with synced lyrics and controls in the KOReader plugin, on `/kindle/spotify` and at `/spotify` |
+| 💼 **Work** | GitHub activity and deploy status · Claude Code session/weekly limits and tokens per day (KOReader plugin) |
+| 🖥️ **Servers** | CPU, memory, disk, SMART/temperatures, containers and site health of two servers (KOReader plugin) |
 | 💾 **Saved data** | Last successful Steam/League/Spotify data is kept on disk; a failed API call never blanks the screen |
 
 ---
@@ -272,6 +280,9 @@ npm run dev
 | `http://localhost:3000/spotify` | Full Spotify player |
 | `http://localhost:3000/api/trmnl` | JSON payload for the TRMNL / LaraPaper plugin |
 | `http://localhost:3000/api/kindle/dashboard.png` | Dashboard image for the KOReader plugin (`?w=&h=` to size it) |
+| `http://localhost:3000/api/kindle/work.png` | Work tab image for the KOReader plugin (GitHub + Claude) |
+| `http://localhost:3000/api/kindle/servers.png` | Servers tab image for the KOReader plugin |
+| `POST /api/claude/report`, `POST /api/servers/report` | Reports from `claude-reporter/` and `server-agent/` (Bearer `REPORT_TOKEN`) |
 | `http://127.0.0.1:3000/api/spotify/auth` | Start Spotify OAuth flow (use `127.0.0.1`, see [Spotify keys](#spotify-keys)) |
 
 ## Running with Docker
@@ -304,6 +315,24 @@ One-time server setup:
 
 > If Docker on the server is installed via **snap**, its AppArmor profile blocks DNS for the buildx client, so registry lookups during `docker build` fail. The workflow works around it by pulling the base images with `docker pull` first.
 
+## Work and Servers tabs
+
+The KOReader plugin's **Work** and **Servers** tabs need a little setup besides the app itself:
+
+- **GitHub** — set `GITHUB_TOKEN` (classic PAT, `repo` scope) and optionally `GITHUB_DEPLOY_REPOS`.
+  The 12-month figures load in the background and can take a few minutes after the first request
+  (GitHub's search API is rate limited, so the app backs off and retries). Commit counts only include
+  commits on each repository's default branch (a GitHub search limitation).
+- **Claude** — on the Windows PC that runs Claude Code, set up [`claude-reporter/`](claude-reporter/README.md)
+  (`install.ps1` creates a hidden scheduled task that runs `report.mjs` every 5 minutes).
+- **Servers** — on each server, run [`server-agent/`](server-agent/README.md) with Docker. It reads host
+  files through `/proc/1/root`, so no host mount is needed; see its README for options such as
+  `ignoreContainers` and SMART behaviour.
+- Both reporters authenticate with `REPORT_TOKEN`; set it on the server first (`openssl rand -hex 24`).
+- `HEALTHCHECK_URLS` lists the sites checked at the bottom of the Servers tab, as `label=url,label=url`.
+- `TZ` (e.g. `America/Sao_Paulo`) sets what "this week" / "this month" mean; it works in the Docker image as is.
+- The two images are guarded by `KINDLE_API_TOKEN` like the Spotify routes.
+
 ---
 
 ## Environment Variables
@@ -318,9 +347,15 @@ One-time server setup:
 | `SPOTIFY_API_CLIENT_SECRET` | Spotify app client secret | — |
 | `SPOTIFY_REFRESH_TOKEN` | OAuth refresh token *(obtained via `/api/spotify/auth`)* | — |
 | `KINDLE_API_TOKEN` | Secret required on the Spotify routes (see [Access token](#access-token)); unset = open | — |
+| `GITHUB_TOKEN` | Classic personal access token with `repo` scope (Work tab); unset = no GitHub data | — |
+| `GITHUB_DEPLOY_REPOS` | Comma-separated `owner/repo` list whose latest Actions run is shown under "Últimos deploys" | — |
+| `REPORT_TOKEN` | Shared secret for `claude-reporter/` and `server-agent/` (`POST /api/*/report`); unset = reports off | — |
+| `HEALTHCHECK_URLS` | Sites checked on the Servers tab, `label=url,label=url` | — |
+| `TZ` | Timezone for "this week" / "this month" on the Work tab | system |
 | `LRCLIB_API_URL` | LRCLIB lyrics API base URL | `https://lrclib.net/api/` |
 | `STEAM_UPDATE_RATE` | Steam cache TTL and Kindle refresh interval (seconds) | `60` |
 | `LEAGUE_UPDATE_RATE` | League cache TTL (seconds) | `600` |
+| `GITHUB_UPDATE_RATE` | GitHub cache TTL (seconds) | `600` |
 | `HOST_PORT` | Docker only: host port published by `compose.yaml` | `3000` |
 | `HOST_BIND` | Docker only: host address the port is published on (`0.0.0.0` for LAN access) | `127.0.0.1` |
 | `CACHE_DIR` | Where the last good API data is saved | `.cache` |
