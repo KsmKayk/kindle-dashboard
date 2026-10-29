@@ -2,3 +2,4 @@ export type { SteamData, SteamNowPlaying, SteamLastPlayed, SteamTopGame, SteamPl
 export type { LeagueData, MatchResult, ChampionStat, SummonerProfile } from './league'
 export type { SpotifyPlayback, SpotifyTrackInfo, LyricsData, LyricLine } from './spotify'
 export type { CiState, GithubPr, GithubDeploy, GithubCommit, GithubReview, GithubMergedPr, GithubFast, GithubSlow, GithubStats, PeriodCounts, RepoCount } from './github'
+export type { ClaudeLimit, ClaudeLimits, ClaudeDay, ClaudeReport, StoredClaude, DiskHealth, RaidInfo, MountInfo, ContainerInfo, ServerReport, StoredServer } from './reports'
