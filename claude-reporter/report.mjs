@@ -65,8 +65,13 @@ async function readLimits() {
 const state = loadState()
 scanLogs(state, join(claudeDir, 'projects'))
 pruneState(state, new Date())
-// Saved before sending: totals are re-sent in full next time if this send fails
-saveState(state)
+// Saved before sending: totals are re-sent in full next time if this send fails.
+// A failing write is logged and the report still goes out.
+try {
+  saveState(state)
+} catch (err) {
+  console.error(`state.json not saved: ${err.message}`)
+}
 
 const report = { limits: await readLimits(), days: daysForReport(state) }
 // exitCode instead of process.exit: exiting with a request still closing aborts node on Windows

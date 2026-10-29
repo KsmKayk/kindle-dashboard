@@ -3,10 +3,10 @@
 #   Unregister-ScheduledTask -TaskName KindleDashClaudeReporter -Confirm:$false
 $dir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not (Test-Path "$dir\config.json")) { throw "Create $dir\config.json from config.example.json first" }
-$node = Get-Command node -ErrorAction SilentlyContinue
-if (-not $node) { throw "node is not on PATH" }
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw "node is not on PATH" }
+$nodePath = (& node -p "process.execPath").Trim()
 # The task runs without your PATH: remember node's full path (read by run-hidden.vbs). Run again after upgrading node.
-[IO.File]::WriteAllText("$dir\node-path.txt", $node.Source, [Text.Encoding]::Unicode)
+[IO.File]::WriteAllText("$dir\node-path.txt", $nodePath, [Text.Encoding]::Unicode)
 
 $action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument "`"$dir\run-hidden.vbs`""
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5)

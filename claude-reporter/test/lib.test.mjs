@@ -157,10 +157,28 @@ test('scanLogs reads incrementally, re-reads a partial line, and survives bad fi
   }
 })
 
+test('scanLogs logs one error for a file it cannot scan and carries on', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'reporter-'))
+  try {
+    const bad = join(dir, 'bad.jsonl')
+    writeFileSync(bad, logLine(1))
+    writeFileSync(join(dir, 'ok.jsonl'), logLine(2))
+    const errors = []
+    const state = emptyState()
+    // reading the saved offset of the bad file throws, standing in for a file that fails mid-scan
+    state.files = new Proxy({}, { get: (target, key) => { if (key === bad) throw new Error('boom'); return target[key] } })
+    scanLogs(state, dir, (m) => errors.push(m))
+    assert.deepEqual(errors, [`${bad}: boom`])
+    assert.equal(total(state), 10)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('scanLogs ignores a directory named like a log and keeps going', () => {
   const dir = mkdtempSync(join(tmpdir(), 'reporter-'))
   try {
-    mkdirSync(join(dir, 'dir.jsonl'))  // a directory named like a log: opening it for reading fails
+    mkdirSync(join(dir, 'dir.jsonl'))  // a directory named like a log: it is walked, not read as a file
     writeFileSync(join(dir, 'ok.jsonl'), logLine(1))
     const errors = []
     const state = emptyState()

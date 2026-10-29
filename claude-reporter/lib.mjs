@@ -112,10 +112,19 @@ export function limitsFromUsage(body, now) {
   return fiveHour || sevenDay ? { fiveHour, sevenDay, at: now.toISOString() } : null
 }
 
-function logFiles(dir) {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+// An unreadable subfolder is logged and skipped; failing to list the top folder throws
+function logFiles(dir, log, top = true) {
+  let entries
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+  } catch (err) {
+    if (top) throw err
+    log(`${dir}: ${err.message}`)
+    return []
+  }
+  return entries.flatMap((entry) => {
     const path = join(dir, entry.name)
-    if (entry.isDirectory()) return logFiles(path)
+    if (entry.isDirectory()) return logFiles(path, log, false)
     return entry.name.endsWith('.jsonl') ? [path] : []
   })
 }
@@ -125,6 +134,7 @@ function scanFile(state, file) {
   const size = statSync(file).size
   let offset = state.files[file] ?? 0
   if (size < offset) offset = 0  // file was rewritten: read it again (seen keys prevent double counts)
+  if (offset >= size) return  // nothing new: do not even open it
   const fd = openSync(file, 'r')
   try {
     while (offset < size) {
@@ -135,7 +145,7 @@ function scanFile(state, file) {
       for (const line of lines) addUsage(state, usageFromLine(line))
       if (consumed === 0) {
         if (offset + bytesRead >= size) break  // partial last line: wait for the rest
-        offset += bytesRead  // a single line bigger than a chunk: skip it
+        offset += bytesRead  // a line bigger than one chunk (16 MB) is dropped, not counted
       } else {
         offset += consumed
       }
@@ -154,7 +164,7 @@ export function scanLogs(state, projectsDir, log = console.error) {
   let listed = true
   if (existsSync(projectsDir)) {
     try {
-      files = logFiles(projectsDir)
+      files = logFiles(projectsDir, log)
     } catch (err) {
       listed = false
       log(`${projectsDir}: ${err.message}`)
