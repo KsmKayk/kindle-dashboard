@@ -13,6 +13,11 @@ import { promisify } from 'node:util'
 import { cpuPct, fitReport, listContainers, mountDevice, mountPath, netRate, nextSmart, parseCpu, parseMdstat, parseMeminfo, parseNetDev, smartOutcome } from './lib.mjs'
 
 const config = JSON.parse(readFileSync(new URL('./config.json', import.meta.url), 'utf8'))
+// The dashboard rejects any other id, so fail loudly instead of logging a 400 every minute
+if (!/^[a-z0-9-]{1,40}$/.test(config.id ?? '')) {
+  console.error('config.json: "id" must be 1–40 lowercase letters, digits or "-"')
+  process.exit(1)
+}
 const HOST = process.env.HOST_ROOT ?? '/proc/1/root'
 const INTERVAL_MS = (config.intervalSec ?? 60) * 1000
 const SAMPLE_MS = 1000

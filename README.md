@@ -228,8 +228,10 @@ see [Spotify keys](#spotify-keys) below.
 Anyone who finds the server could read what you are playing and pause or skip it. Set
 `KINDLE_API_TOKEN` (any long random string, e.g. `openssl rand -hex 24`) to require it on the Spotify
 routes: `/api/spotify`, `/api/spotify/lyrics`, `/api/spotify/control`, `/api/spotify/auth`, `/spotify`,
-`/kindle/spotify` and `/kindle/spotify/control`. Everything else (the dashboard, `/kindle`, `/api/trmnl`,
-the images) stays open, and with the variable unset nothing changes.
+`/kindle/spotify` and `/kindle/spotify/control`, and on the Work and Servers images
+(`/api/kindle/work.png`, `/api/kindle/servers.png`), which show PR titles and server details.
+Everything else (the dashboard, `/kindle`, `/api/trmnl`, the dashboard image) stays open, and with the
+variable unset nothing changes.
 
 How each client sends it:
 
@@ -346,7 +348,7 @@ The KOReader plugin's **Work** and **Servers** tabs need a little setup besides 
 | `SPOTIFY_API_CLIENT_ID` | Spotify app client ID | — |
 | `SPOTIFY_API_CLIENT_SECRET` | Spotify app client secret | — |
 | `SPOTIFY_REFRESH_TOKEN` | OAuth refresh token *(obtained via `/api/spotify/auth`)* | — |
-| `KINDLE_API_TOKEN` | Secret required on the Spotify routes (see [Access token](#access-token)); unset = open | — |
+| `KINDLE_API_TOKEN` | Secret required on the Spotify routes and the Work/Servers images (see [Access token](#access-token)); unset = open | — |
 | `GITHUB_TOKEN` | Classic personal access token with `repo` scope (Work tab); unset = no GitHub data | — |
 | `GITHUB_DEPLOY_REPOS` | Comma-separated `owner/repo` list whose latest Actions run is shown under "Últimos deploys" | — |
 | `REPORT_TOKEN` | Shared secret for `claude-reporter/` and `server-agent/` (`POST /api/*/report`); unset = reports off | — |
