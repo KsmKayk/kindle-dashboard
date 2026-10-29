@@ -49,3 +49,9 @@ next-env.d.ts
 
 # brainstorming mockups
 .superpowers/
+
+# reporter configs and state (secrets, per machine)
+claude-reporter/config.json
+claude-reporter/state.json
+claude-reporter/last-run.log
+server-agent/config.json

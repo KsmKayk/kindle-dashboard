@@ -8,3 +8,8 @@ handoff-temp
 kindle-dashboard-handoff.zip
 docs
 .cache
+
+claude-reporter
+server-agent
+koreader-plugin
+trmnl-plugin
