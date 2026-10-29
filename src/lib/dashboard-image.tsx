@@ -1,33 +1,12 @@
 /* eslint-disable @next/next/no-img-element -- Satori (ImageResponse) renders plain <img>, not next/image */
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { ImageResponse } from 'next/og'
-import sharp from 'sharp'
 import { fetchAndGrayscale } from './image'
 import { daysAgo } from './steam'
+import { INK, INK_MUTED, PAPER, PAPER_LIGHT, PAPER_DARK, PAPER_DARKER, SERIF, SANS, card, Label, SectionHeader, Page, renderKindlePng } from './image-kit'
+import { DEFAULT_IMAGE_SIZE, type ImageSize } from './kindle-png'
 import type { SteamData, LeagueData, MatchResult, ChampionStat, SteamTopGame } from '@/types'
 
 // Steam + League dashboard as a PNG for the KOReader plugin. Same look as the
-// /kindle page, rebuilt with flexbox only (Satori, behind ImageResponse, has no tables).
-
-const INK = '#1a1612'
-const INK_MUTED = '#7a7268'
-const PAPER = '#e8e3d8'
-const PAPER_LIGHT = '#f1ede2'
-const PAPER_DARK = '#d8d2c4'
-const PAPER_DARKER = '#c4bdac'
-
-const SERIF = 'Noto Serif'
-const SANS = 'Noto Sans'
-
-export const DEFAULT_IMAGE_SIZE = { width: 600, height: 744 }
-
-const card = {
-  display: 'flex',
-  background: PAPER_LIGHT,
-  border: `1px solid ${INK}`,
-  borderRadius: 10,
-} as const
+// /kindle page, rebuilt with flexbox only (see image-kit.tsx).
 
 // Images are embedded as grayscale data URIs: fetched once per URL, and a failed
 // fetch just leaves the frame empty instead of failing the whole render.
@@ -55,25 +34,6 @@ async function loadImages(urls: string[]): Promise<Images> {
   return new Map(unique.map((url, i) => [url, loaded[i]]))
 }
 
-let fonts: Promise<{ name: string; data: Buffer; weight: 400 | 700; style: 'normal' | 'italic' }[]> | null = null
-
-function loadFonts() {
-  const dir = join(process.cwd(), 'assets', 'fonts')
-  const font = async (file: string, name: string, weight: 400 | 700, style: 'normal' | 'italic' = 'normal') =>
-    ({ name, data: await readFile(join(dir, file)), weight, style })
-  fonts ??= Promise.all([
-    font('NotoSerif-Regular.ttf', SERIF, 400),
-    font('NotoSerif-Bold.ttf', SERIF, 700),
-    font('NotoSerif-Italic.ttf', SERIF, 400, 'italic'),
-    font('NotoSans-Regular.ttf', SANS, 400),
-    font('NotoSans-Bold.ttf', SANS, 700),
-  ]).catch((err) => {
-    fonts = null
-    throw err
-  })
-  return fonts
-}
-
 function Frame({ src, size, round = false }: { src: string | null | undefined; size: number; round?: boolean }) {
   return (
     <div style={{
@@ -81,24 +41,6 @@ function Frame({ src, size, round = false }: { src: string | null | undefined; s
       border: `1px solid ${INK}`, borderRadius: round ? 9999 : 6, background: PAPER_DARK,
     }}>
       {src ? <img src={src} alt="" width={size} height={size} style={{ width: size, height: size, objectFit: 'cover' }} /> : null}
-    </div>
-  )
-}
-
-function Label({ children, size = 9, color = INK_MUTED, bold = false, spacing = 1.8 }: { children: string; size?: number; color?: string; bold?: boolean; spacing?: number }) {
-  return (
-    <div style={{ display: 'flex', fontFamily: SANS, fontSize: size, letterSpacing: spacing, color, fontWeight: bold ? 700 : 400 }}>
-      {children}
-    </div>
-  )
-}
-
-function SectionHeader({ label, meta }: { label: string; meta: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-      <Label size={10} color={INK} bold>{label}</Label>
-      <div style={{ display: 'flex', flex: 1, height: 1, background: INK, margin: '0 10px' }} />
-      <Label>{meta}</Label>
     </div>
   )
 }
@@ -273,25 +215,17 @@ function imageUrls(steam: SteamData | null, league: LeagueData | null): string[]
   return urls
 }
 
-// Returns an 8-bit grayscale PNG (the Kindle shows 16 grays; smaller to download)
 export async function renderDashboardPng(
   steam: SteamData | null,
   league: LeagueData | null,
-  size = DEFAULT_IMAGE_SIZE
+  size: ImageSize = DEFAULT_IMAGE_SIZE
 ): Promise<Buffer> {
-  const [images, fontList] = await Promise.all([loadImages(imageUrls(steam, league)), loadFonts()])
-  const response = new ImageResponse(
-    (
-      <div style={{
-        display: 'flex', flexDirection: 'column', width: '100%', height: '100%',
-        padding: '14px 22px', background: PAPER, color: INK, fontFamily: SERIF,
-      }}>
-        <Steam steam={steam} images={images} />
-        <League league={league} images={images} />
-      </div>
-    ),
-    { ...size, fonts: fontList }
+  const images = await loadImages(imageUrls(steam, league))
+  return renderKindlePng(
+    <Page>
+      <Steam steam={steam} images={images} />
+      <League league={league} images={images} />
+    </Page>,
+    size
   )
-  const png = Buffer.from(await response.arrayBuffer())
-  return sharp(png).removeAlpha().toColourspace('b-w').png({ compressionLevel: 9 }).toBuffer()
 }
