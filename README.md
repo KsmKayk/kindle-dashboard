@@ -17,7 +17,7 @@
 
 ## What is this?
 
-A self-hosted dashboard that turns a **Kindle** into an e-ink status display. The Kindle sits on a desk showing Steam activity, League of Legends stats and what's playing on Spotify, refreshing on its own. With the KOReader plugin it also becomes a small hub you can touch: switch tabs, control Spotify and follow synced lyrics.
+A self-hosted dashboard that turns a **Kindle** into an e-ink status display. The Kindle sits on a desk showing Steam activity, League of Legends stats and what's playing on Spotify, refreshing on its own. With the KOReader plugin it also becomes a small hub you can touch: switch tabs, control Spotify and follow synced lyrics, check your GitHub and Claude usage, and keep an eye on your servers.
 
 The main app is a full React/Next.js dashboard for modern browsers. The Kindle can show it in three ways:
 
@@ -32,7 +32,7 @@ The main app is a full React/Next.js dashboard for modern browsers. The Kindle c
 | **Best for** | An interactive hub: tabs, Spotify controls, live lyrics | A set-and-forget display | Trying it out with the fewest moving parts |
 | **On the Kindle** | Jailbreak + KUAL + KOReader + plugin folder | Jailbreak + a TRMNL client | Jailbreak + KUAL + fullscreen browser |
 | **On the server** | This app | This app + LaraPaper | This app |
-| **Updates** | Dashboard every 60 s; Spotify every 5 s, lyrics line by line | On the device refresh interval (e.g. 60 s) | Whole-page reload (meta refresh) |
+| **Updates** | Dashboard, Work and Servers every 60 s; Spotify every 5 s, lyrics line by line | On the device refresh interval (e.g. 60 s) | Whole-page reload (meta refresh) |
 | **Screen redraw** | Only the changed region (lyrics box, progress bar) | Whole screen | Whole screen |
 | **Touch** | Tabs, swipe, Spotify buttons | None | Links and Spotify buttons (each tap reloads the page) |
 
@@ -167,12 +167,22 @@ buttons or by swiping left/right.
 ```
 Kindle (KOReader + kindledash.koplugin)            this app
   Dashboard tab ── every 60 s ───────────────────► /api/kindle/dashboard.png?w=&h=
-  Work tab      ── on open / refresh ──────────────► /api/kindle/work.png?w=&h=
-  Servers tab   ── on open / refresh ──────────────► /api/kindle/servers.png?w=&h=
+  Work tab      ── every 60 s ───────────────────► /api/kindle/work.png?w=&h=
+  Servers tab   ── every 60 s ───────────────────► /api/kindle/servers.png?w=&h=
   Spotify tab   ── every 5 s ────────────────────► /api/spotify
                 ── once per track ───────────────► /api/spotify/lyrics, /api/image-proxy (cover)
                 ── on tap ───────────────────────► POST /api/spotify/control
 ```
+
+<div align="center">
+
+| Work tab | Servers tab |
+|---|---|
+| ![Work tab: GitHub and Claude usage](github/assets/koreader-work.png) | ![Servers tab: two servers and site checks](github/assets/koreader-servers.png) |
+
+*Rendered with sample data.*
+
+</div>
 
 **Install** (after the jailbreak and KUAL, see [Kindle Setup](#kindle-setup)):
 
@@ -319,7 +329,26 @@ One-time server setup:
 
 ## Work and Servers tabs
 
-The KOReader plugin's **Work** and **Servers** tabs need a little setup besides the app itself:
+What they show:
+
+- **Work → GitHub**: PRs you opened and PRs you reviewed (this week, this month, monthly average over
+  12 months), commits with a 12-week chart and your streak, the most contributed repo (12 months and
+  this month), median time to merge, lines added/removed this month, your open PRs (CI state, approvals,
+  age), PRs waiting for your review, and the latest GitHub Actions run of the repos you list.
+  Org repos are included as long as your token can see them.
+- **Work → Claude**: the 5-hour session and weekly limits of your Claude subscription with when they
+  reset, Claude Code tokens today / this week / this month with a 14-day chart, cache rate, model split
+  and the project that used the most.
+- **Servers**: per server, CPU, RAM, temperature, network, each configured disk (RAID arrays grouped
+  with their member disks and state, SMART health per disk) and the Docker containers with their host
+  ports; then the HTTP checks of your sites.
+
+A card turns dark when something needs a look: a server that stopped reporting for 3 minutes, a degraded
+or resyncing RAID, a disk failing SMART or with reallocated/pending sectors (or no longer answering), RAM
+or a disk at 90% or more, a stopped container (unless listed in `ignoreContainers`), a site that is down
+or a failed deploy.
+
+Setup, besides the app itself:
 
 - **GitHub** — set `GITHUB_TOKEN` (classic PAT, `repo` scope) and optionally `GITHUB_DEPLOY_REPOS`.
   The 12-month figures load in the background and can take a few minutes after the first request
@@ -408,6 +437,8 @@ The KOReader plugin's **Work** and **Servers** tabs need a little setup besides 
 - [x] Data persistence — last successful API responses are saved, so failures and restarts never blank the dashboard
 - [x] Partial screen update — the KOReader plugin redraws only the changed region (lyrics box, progress bar) instead of the whole screen
 - [x] Interactive Kindle hub — KOReader plugin with tabs, Spotify controls and synced lyrics
+- [x] Work tab — GitHub activity and Claude usage limits on the Kindle
+- [x] Servers tab — server health, RAID/SMART, containers and site checks pushed by a small agent
 
 ---
 
